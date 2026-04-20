@@ -1,0 +1,122 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  background: #f4f6f8;
+}
+
+.panel {
+  padding: 16px;
+  border-right: 1px solid #d8dde3;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.panel h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.muted {
+  margin: 6px 0 16px;
+  color: #5f6b76;
+  font-size: 13px;
+}
+
+label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2f3a45;
+}
+
+input,
+textarea,
+button {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #c9d2dc;
+  padding: 10px;
+  font-size: 13px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 92px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.row button {
+  padding: 0 8px;
+}
+
+button {
+  background: #f3f6f9;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #e8edf2;
+}
+
+button.primary {
+  margin-top: 10px;
+  background: #1463ff;
+  color: #ffffff;
+  border-color: #1463ff;
+}
+
+button.primary:hover {
+  background: #0f53d9;
+}
+
+.status {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #344252;
+}
+
+.error {
+  color: #a32020;
+  font-size: 12px;
+}
+
+.editorArea {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .panel {
+    border-right: 0;
+    border-bottom: 1px solid #d8dde3;
+  }
+}
