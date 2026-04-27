@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("codeforge", {
   writeFile: (filePath, content) =>
     ipcRenderer.invoke("cf:write-file", { filePath, content }),
   listFiles: () => ipcRenderer.invoke("cf:list-files"),
+  getWorkspaceRoot: () => ipcRenderer.invoke("cf:get-workspace-root"),
   createFolder: (folderPath) => ipcRenderer.invoke("cf:create-folder", folderPath),
   renamePath: (oldPath, newPath) =>
     ipcRenderer.invoke("cf:rename-path", { oldPath, newPath }),

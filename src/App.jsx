@@ -1,14 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import '@vscode/codicons/dist/codicon.css';
 import EditorPanel from './features/editor/EditorPanel';
 import FilePanel from './features/files/FilePanel';
 import AIPanel from './features/ai/AIPanel';
 import TerminalComponent from './features/terminal/TerminalComponent';
 import './index.css';
-import explorerIcon from '../assets/explorer.png';
-import searchIcon from '../assets/search.png';
-import sourceControlIcon from '../assets/SourceControl.png';
-import runAndDebugIcon from '../assets/runAndDebug.png';
-import extensionsIcon from '../assets/Extension.png';
 
 const MENUS = [
   {
@@ -16,9 +12,28 @@ const MENUS = [
     label: 'File',
     items: [
       { id: 'file.new', label: 'New File', shortcut: 'Ctrl+N' },
+      { id: 'file.newWindow', label: 'New Window', shortcut: 'Ctrl+Shift+N' },
       { id: 'file.open', label: 'Open File...', shortcut: 'Ctrl+O' },
+      { id: 'file.openFolder', label: 'Open Folder...', shortcut: 'Ctrl+K Ctrl+O' },
+      { id: 'file.openWorkspace', label: 'Open Workspace from File...' },
+      { id: 'file.openRecent', label: 'Open Recent' },
+      { type: 'separator' },
+      { id: 'file.addFolder', label: 'Add Folder to Workspace...' },
+      { id: 'file.saveWorkspaceAs', label: 'Save Workspace As...' },
+      { id: 'file.duplicateWorkspace', label: 'Duplicate Workspace' },
+      { type: 'separator' },
       { id: 'file.save', label: 'Save', shortcut: 'Ctrl+S' },
       { id: 'file.saveAs', label: 'Save As...', shortcut: 'Ctrl+Shift+S' },
+      { id: 'file.saveAll', label: 'Save All', shortcut: 'Ctrl+K S' },
+      { type: 'separator' },
+      { id: 'file.share', label: 'Share' },
+      { id: 'file.autoSave', label: 'Auto Save' },
+      { id: 'file.preferences', label: 'Preferences' },
+      { type: 'separator' },
+      { id: 'file.revert', label: 'Revert File' },
+      { id: 'file.closeEditor', label: 'Close Editor', shortcut: 'Ctrl+F4' },
+      { id: 'file.closeFolder', label: 'Close Folder' },
+      { id: 'file.closeWindow', label: 'Close Window', shortcut: 'Alt+F4' },
       { id: 'file.exit', label: 'Exit', shortcut: 'Ctrl+Q' }
     ]
   },
@@ -32,8 +47,15 @@ const MENUS = [
       { id: 'edit.copy', label: 'Copy', shortcut: 'Ctrl+C' },
       { id: 'edit.paste', label: 'Paste', shortcut: 'Ctrl+V' },
       { id: 'edit.selectAll', label: 'Select All', shortcut: 'Ctrl+A' },
+      { type: 'separator' },
       { id: 'edit.find', label: 'Find', shortcut: 'Ctrl+F' },
-      { id: 'edit.replace', label: 'Replace', shortcut: 'Ctrl+H' }
+      { id: 'edit.replace', label: 'Replace', shortcut: 'Ctrl+H' },
+      { id: 'edit.findInFiles', label: 'Find in Files', shortcut: 'Ctrl+Shift+F' },
+      { id: 'edit.replaceInFiles', label: 'Replace in Files', shortcut: 'Ctrl+Shift+H' },
+      { type: 'separator' },
+      { id: 'edit.toggleLineComment', label: 'Toggle Line Comment', shortcut: 'Ctrl+/' },
+      { id: 'edit.toggleBlockComment', label: 'Toggle Block Comment', shortcut: 'Shift+Alt+A' },
+      { id: 'edit.emmet', label: 'Emmet: Expand Abbreviation', shortcut: 'Tab' }
     ]
   },
   {
@@ -43,17 +65,45 @@ const MENUS = [
       { id: 'selection.copyLineUp', label: 'Copy Line Up', shortcut: 'Shift+Alt+Up' },
       { id: 'selection.copyLineDown', label: 'Copy Line Down', shortcut: 'Shift+Alt+Down' },
       { id: 'selection.expand', label: 'Expand Selection', shortcut: 'Shift+Alt+Right' },
-      { id: 'selection.shrink', label: 'Shrink Selection', shortcut: 'Shift+Alt+Left' }
+      { id: 'selection.shrink', label: 'Shrink Selection', shortcut: 'Shift+Alt+Left' },
+      { type: 'separator' },
+      { id: 'selection.moveLineUp', label: 'Move Line Up', shortcut: 'Alt+Up' },
+      { id: 'selection.moveLineDown', label: 'Move Line Down', shortcut: 'Alt+Down' },
+      { id: 'selection.duplicate', label: 'Duplicate Selection' },
+      { id: 'selection.addCursorAbove', label: 'Add Cursor Above', shortcut: 'Ctrl+Alt+Up' },
+      { id: 'selection.addCursorBelow', label: 'Add Cursor Below', shortcut: 'Ctrl+Alt+Down' },
+      { id: 'selection.addCursorsToLineEnds', label: 'Add Cursors to Line Ends', shortcut: 'Shift+Alt+I' },
+      { id: 'selection.selectAllOccurrences', label: 'Select All Occurrences', shortcut: 'Ctrl+Shift+L' }
     ]
   },
   {
     id: 'view',
     label: 'View',
     items: [
+      { id: 'view.commandPalette', label: 'Command Palette...', shortcut: 'Ctrl+Shift+P' },
+      { id: 'view.openView', label: 'Open View...' },
+      { type: 'separator' },
+      { id: 'view.explorer', label: 'Explorer', shortcut: 'Ctrl+Shift+E' },
+      { id: 'view.search', label: 'Search', shortcut: 'Ctrl+Shift+F' },
+      { id: 'view.sourceControl', label: 'Source Control', shortcut: 'Ctrl+Shift+G' },
+      { id: 'view.runDebug', label: 'Run and Debug', shortcut: 'Ctrl+Shift+D' },
+      { id: 'view.extensions', label: 'Extensions', shortcut: 'Ctrl+Shift+X' },
+      { id: 'view.github', label: 'GitHub' },
+      { id: 'view.aiChat', label: 'Chat' },
+      { type: 'separator' },
+      { id: 'view.appearance', label: 'Appearance' },
+      { id: 'view.editorLayout', label: 'Editor Layout' },
+      { type: 'separator' },
       { id: 'view.toggleSidebar', label: 'Toggle Sidebar', shortcut: 'Ctrl+B' },
       { id: 'view.toggleAI', label: 'Toggle AI Panel', shortcut: 'Ctrl+J' },
       { id: 'view.toggleTerminal', label: 'Toggle Terminal', shortcut: 'Ctrl+`' },
-      { id: 'view.toggleFullScreen', label: 'Toggle Full Screen', shortcut: 'F11' }
+      { id: 'view.togglePanel', label: 'Toggle Panel', shortcut: 'Ctrl+J' },
+      { id: 'view.toggleStatusBar', label: 'Toggle Status Bar' },
+      { id: 'view.toggleActivityBar', label: 'Toggle Activity Bar' },
+      { id: 'view.toggleFullScreen', label: 'Toggle Full Screen', shortcut: 'F11' },
+      { id: 'view.zoomIn', label: 'Zoom In', shortcut: 'Ctrl+=' },
+      { id: 'view.zoomOut', label: 'Zoom Out', shortcut: 'Ctrl+-' },
+      { id: 'view.resetZoom', label: 'Reset Zoom', shortcut: 'Ctrl+0' }
     ]
   },
   {
@@ -62,8 +112,21 @@ const MENUS = [
     items: [
       { id: 'go.back', label: 'Back', shortcut: 'Alt+Left' },
       { id: 'go.forward', label: 'Forward', shortcut: 'Alt+Right' },
+      { id: 'go.lastEdit', label: 'Last Edit Location', shortcut: 'Ctrl+K Ctrl+Q' },
+      { type: 'separator' },
       { id: 'go.file', label: 'Go to File...', shortcut: 'Ctrl+P' },
-      { id: 'go.symbol', label: 'Go to Symbol...', shortcut: 'Ctrl+Shift+O' }
+      { id: 'go.symbol', label: 'Go to Symbol...', shortcut: 'Ctrl+Shift+O' },
+      { id: 'go.workspaceSymbol', label: 'Go to Symbol in Workspace...', shortcut: 'Ctrl+T' },
+      { id: 'go.definition', label: 'Go to Definition', shortcut: 'F12' },
+      { id: 'go.declaration', label: 'Go to Declaration' },
+      { id: 'go.typeDefinition', label: 'Go to Type Definition' },
+      { id: 'go.implementation', label: 'Go to Implementations', shortcut: 'Ctrl+F12' },
+      { id: 'go.references', label: 'Go to References', shortcut: 'Shift+F12' },
+      { type: 'separator' },
+      { id: 'go.line', label: 'Go to Line/Column...', shortcut: 'Ctrl+G' },
+      { id: 'go.bracket', label: 'Go to Bracket', shortcut: 'Ctrl+Shift+\\' },
+      { id: 'go.nextProblem', label: 'Next Problem', shortcut: 'F8' },
+      { id: 'go.previousProblem', label: 'Previous Problem', shortcut: 'Shift+F8' }
     ]
   },
   {
@@ -72,7 +135,21 @@ const MENUS = [
     items: [
       { id: 'run.debug', label: 'Start Debugging', shortcut: 'F5' },
       { id: 'run.noDebug', label: 'Start Without Debugging', shortcut: 'Ctrl+F5' },
-      { id: 'run.breakpoint', label: 'Toggle Breakpoint', shortcut: 'F9' }
+      { id: 'run.stop', label: 'Stop Debugging', shortcut: 'Shift+F5' },
+      { id: 'run.restart', label: 'Restart Debugging', shortcut: 'Ctrl+Shift+F5' },
+      { type: 'separator' },
+      { id: 'run.openConfigurations', label: 'Open Configurations' },
+      { id: 'run.addConfiguration', label: 'Add Configuration...' },
+      { type: 'separator' },
+      { id: 'run.stepOver', label: 'Step Over', shortcut: 'F10' },
+      { id: 'run.stepInto', label: 'Step Into', shortcut: 'F11' },
+      { id: 'run.stepOut', label: 'Step Out', shortcut: 'Shift+F11' },
+      { id: 'run.continue', label: 'Continue', shortcut: 'F5' },
+      { id: 'run.breakpoint', label: 'Toggle Breakpoint', shortcut: 'F9' },
+      { id: 'run.newBreakpoint', label: 'New Breakpoint' },
+      { id: 'run.enableAllBreakpoints', label: 'Enable All Breakpoints' },
+      { id: 'run.disableAllBreakpoints', label: 'Disable All Breakpoints' },
+      { id: 'run.removeAllBreakpoints', label: 'Remove All Breakpoints' }
     ]
   },
   {
@@ -80,14 +157,46 @@ const MENUS = [
     label: 'Terminal',
     items: [
       { id: 'terminal.new', label: 'New Terminal', shortcut: 'Ctrl+Shift+`' },
+      { id: 'terminal.split', label: 'Split Terminal', shortcut: 'Ctrl+Shift+5' },
       { id: 'terminal.runTask', label: 'Run Task' },
-      { id: 'terminal.clear', label: 'Clear' }
+      { id: 'terminal.runBuildTask', label: 'Run Build Task...', shortcut: 'Ctrl+Shift+B' },
+      { id: 'terminal.runActiveFile', label: 'Run Active File' },
+      { id: 'terminal.runSelectedText', label: 'Run Selected Text' },
+      { type: 'separator' },
+      { id: 'terminal.showRunningTasks', label: 'Show Running Tasks...' },
+      { id: 'terminal.restartRunningTask', label: 'Restart Running Task...' },
+      { id: 'terminal.terminateTask', label: 'Terminate Task...' },
+      { type: 'separator' },
+      { id: 'terminal.clear', label: 'Clear' },
+      { id: 'terminal.kill', label: 'Kill Terminal' }
+    ]
+  },
+  {
+    id: 'github',
+    label: 'GitHub',
+    items: [
+      { id: 'github.signIn', label: 'Sign in to GitHub...' },
+      { id: 'github.clone', label: 'Clone Repository...' },
+      { id: 'github.publish', label: 'Publish Branch...' },
+      { id: 'github.pullRequests', label: 'Pull Requests' },
+      { id: 'github.issues', label: 'Issues' },
+      { id: 'github.actions', label: 'Actions' },
+      { id: 'github.openRemote', label: 'Open on GitHub' }
     ]
   },
   {
     id: 'help',
     label: 'Help',
     items: [
+      { id: 'help.welcome', label: 'Welcome' },
+      { id: 'help.showAllCommands', label: 'Show All Commands', shortcut: 'Ctrl+Shift+P' },
+      { id: 'help.documentation', label: 'Documentation' },
+      { id: 'help.editorPlayground', label: 'Editor Playground' },
+      { id: 'help.releaseNotes', label: 'Release Notes' },
+      { type: 'separator' },
+      { id: 'help.toggleDevTools', label: 'Toggle Developer Tools' },
+      { id: 'help.processExplorer', label: 'Open Process Explorer' },
+      { type: 'separator' },
       { id: 'help.about', label: 'About CodeForge' },
       { id: 'help.learn', label: 'Learn More' }
     ]
@@ -111,6 +220,53 @@ const FALLBACK_WORKSPACE_FILES = [
   'vite.config.js'
 ];
 
+const BOTTOM_TABS = ['PROBLEMS', 'OUTPUT', 'DEBUG CONSOLE', 'TERMINAL', 'PORTS'];
+
+const EXTENSION_ITEMS = [
+  {
+    id: 'ai-assistant',
+    name: 'CodeForge AI Assistant',
+    description: 'Offline code chat and edit workflow powered by local Ollama.',
+    enabled: true
+  },
+  {
+    id: 'monaco-editor',
+    name: 'Monaco Editor Core',
+    description: 'VS Code editor engine with symbols, find, replace, and language modes.',
+    enabled: true
+  },
+  {
+    id: 'git-tools',
+    name: 'Git Tools',
+    description: 'Source control badges, change list, branch status, and refresh actions.',
+    enabled: true
+  },
+  {
+    id: 'debug-runner',
+    name: 'Run and Debug',
+    description: 'Launch commands, build tasks, debug console, and breakpoint shell.',
+    enabled: false
+  }
+];
+
+function getFileName(filePath) {
+  return filePath ? filePath.split(/[\\/]/).pop() : '';
+}
+
+function getGitStatusLabel(status) {
+  const labels = {
+    M: 'Modified',
+    U: 'Untracked',
+    A: 'Added',
+    D: 'Deleted'
+  };
+  return labels[status] || status || 'Changed';
+}
+
+function Codicon({ name, className = '' }) {
+  return <span className={`codicon codicon-${name} ${className}`} aria-hidden="true" />;
+}
+
 function App() {
   const [activeFile, setActiveFile] = useState('CODEBASE_STRUCTURE.md');
   const [activeFilePath, setActiveFilePath] = useState(null);
@@ -132,6 +288,13 @@ function App() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchCursor, setSearchCursor] = useState(0);
   const [leftSearchQuery, setLeftSearchQuery] = useState('');
+  const [leftSearchReplace, setLeftSearchReplace] = useState('');
+  const [searchOptions, setSearchOptions] = useState({
+    matchCase: false,
+    wholeWord: false,
+    regex: false
+  });
+  const [extensionQuery, setExtensionQuery] = useState('');
   const [workspaceFiles, setWorkspaceFiles] = useState(FALLBACK_WORKSPACE_FILES);
   const [gitMap, setGitMap] = useState({});
   const [gitInfo, setGitInfo] = useState({ branch: '', isDirty: false });
@@ -144,15 +307,19 @@ function App() {
   });
 
   const leftTabs = [
-    { id: 'explorer', label: 'Explorer' },
-    { id: 'search', label: 'Search' },
-    { id: 'source-control', label: 'Source Control' },
-    { id: 'debug', label: 'Run and Debug' },
-    { id: 'extensions', label: 'Extensions' }
+    { id: 'explorer', label: 'Explorer', icon: 'files' },
+    { id: 'search', label: 'Search', icon: 'search' },
+    { id: 'source-control', label: 'Source Control', icon: 'source-control' },
+    { id: 'debug', label: 'Run and Debug', icon: 'debug-alt' },
+    { id: 'remote', label: 'Remote Explorer', icon: 'remote-explorer' },
+    { id: 'extensions', label: 'Extensions', icon: 'extensions' },
+    { id: 'github', label: 'GitHub', icon: 'github' },
+    { id: 'ai-agent', label: 'AI Agent', icon: 'copilot' },
+    { id: 'more', label: 'More', icon: 'ellipsis' }
   ];
   const leftBottomTabs = [
-    { id: 'account', label: 'Account' },
-    { id: 'settings', label: 'Settings' }
+    { id: 'account', label: 'Accounts', icon: 'account' },
+    { id: 'settings', label: 'Manage', icon: 'settings-gear' }
   ];
 
   const sourceControlCount = useMemo(() => {
@@ -160,13 +327,34 @@ function App() {
     return count > 99 ? '99+' : count;
   }, [gitMap]);
 
-  const activityIcons = useMemo(() => ({
-    explorer: explorerIcon,
-    search: searchIcon,
-    'source-control': sourceControlIcon,
-    debug: runAndDebugIcon,
-    extensions: extensionsIcon
-  }), []);
+  const gitChanges = useMemo(() => (
+    Object.entries(gitMap || {})
+      .map(([filePath, status]) => ({
+        filePath,
+        fileName: getFileName(filePath),
+        status,
+        statusLabel: getGitStatusLabel(status)
+      }))
+      .sort((a, b) => a.filePath.localeCompare(b.filePath))
+  ), [gitMap]);
+
+  const gitSummary = useMemo(() => gitChanges.reduce((summary, change) => {
+    summary[change.status] = (summary[change.status] || 0) + 1;
+    return summary;
+  }, {}), [gitChanges]);
+
+  const breadcrumbs = useMemo(() => {
+    const pathValue = activeFilePath || activeFile;
+    return pathValue ? pathValue.split(/[\\/]/).filter(Boolean) : [];
+  }, [activeFile, activeFilePath]);
+
+  const visibleExtensions = useMemo(() => {
+    const query = extensionQuery.trim().toLowerCase();
+    if (!query) return EXTENSION_ITEMS;
+    return EXTENSION_ITEMS.filter((item) =>
+      [item.name, item.description].some((value) => value.toLowerCase().includes(query))
+    );
+  }, [extensionQuery]);
 
   const activeMenu = useMemo(
     () => MENUS.find((menu) => menu.id === activeMenuId) || null,
@@ -174,20 +362,24 @@ function App() {
   );
   const menuActions = useMemo(
     () => MENUS.flatMap((menu) =>
-      menu.items.map((item) => ({
-        ...item,
-        bucket: menu.label,
-        type: 'action'
-      }))
+      menu.items
+        .filter((item) => item.type !== 'separator')
+        .map((item) => ({
+          ...item,
+          bucket: menu.label,
+          type: 'action'
+        }))
     ),
     []
   );
 
   const quickResults = useMemo(() => {
-    const query = quickSearch.trim().toLowerCase();
-    if (!query) return [];
+    const rawQuery = quickSearch.trim();
+    const commandMode = rawQuery.startsWith('>');
+    const query = rawQuery.replace(/^>\s*/, '').toLowerCase();
+    if (!query && !commandMode) return [];
 
-    const files = workspaceFiles
+    const files = commandMode ? [] : workspaceFiles
       .filter((filePath) => filePath.toLowerCase().includes(query))
       .map((filePath) => ({
         id: `file:${filePath}`,
@@ -199,7 +391,7 @@ function App() {
       }));
 
     const actions = menuActions
-      .filter((item) => item.label.toLowerCase().includes(query))
+      .filter((item) => !query || item.label.toLowerCase().includes(query))
       .map((item) => ({
         id: `action:${item.id}`,
         label: item.label,
@@ -291,6 +483,13 @@ function App() {
     window.dispatchEvent(new CustomEvent('cf:terminal-command', { detail: { command } }));
   }, []);
 
+  const openCommandPalette = useCallback(() => {
+    setSearchFocused(true);
+    setQuickSearch('>');
+    const input = document.querySelector('.title-bar-input');
+    input?.focus();
+  }, []);
+
   const saveCurrentFile = useCallback(async () => {
     if (!window.codeforge) return;
     if (!activeFilePath) {
@@ -314,6 +513,9 @@ function App() {
           setEditorCode('');
           setIsDirty(false);
           break;
+        case 'file.newWindow':
+          window.alert('New window support will be wired in the Electron window manager phase.');
+          break;
         case 'file.open': {
           if (!window.codeforge) break;
           const selected = await window.codeforge.pickFile();
@@ -326,6 +528,9 @@ function App() {
           break;
         }
         case 'file.save':
+          await saveCurrentFile();
+          break;
+        case 'file.saveAll':
           await saveCurrentFile();
           break;
         case 'file.saveAs': {
@@ -348,11 +553,23 @@ function App() {
         case 'edit.selectAll':
         case 'edit.find':
         case 'edit.replace':
+        case 'edit.toggleLineComment':
+        case 'edit.toggleBlockComment':
         case 'selection.copyLineUp':
         case 'selection.copyLineDown':
+        case 'selection.moveLineUp':
+        case 'selection.moveLineDown':
+        case 'selection.addCursorAbove':
+        case 'selection.addCursorBelow':
+        case 'selection.addCursorsToLineEnds':
+        case 'selection.selectAllOccurrences':
         case 'selection.expand':
         case 'selection.shrink':
         case 'go.symbol':
+        case 'go.definition':
+        case 'go.references':
+        case 'go.line':
+        case 'go.bracket':
         case 'run.breakpoint':
           executeEditorCommand(action);
           break;
@@ -363,7 +580,44 @@ function App() {
           setAiPanelOpen((prev) => !prev);
           break;
         case 'view.toggleTerminal':
+        case 'view.togglePanel':
           setBottomPanelOpen((prev) => !prev);
+          break;
+        case 'view.commandPalette':
+        case 'help.showAllCommands':
+          openCommandPalette();
+          break;
+        case 'view.explorer':
+          setActiveLeftIcon('explorer');
+          setSidebarOpen(true);
+          break;
+        case 'view.search':
+        case 'edit.findInFiles':
+        case 'edit.replaceInFiles':
+          setActiveLeftIcon('search');
+          setSidebarOpen(true);
+          break;
+        case 'view.sourceControl':
+          setActiveLeftIcon('source-control');
+          setSidebarOpen(true);
+          break;
+        case 'view.runDebug':
+          setActiveLeftIcon('debug');
+          setSidebarOpen(true);
+          break;
+        case 'view.extensions':
+          setActiveLeftIcon('extensions');
+          setSidebarOpen(true);
+          break;
+        case 'view.github':
+        case 'github.pullRequests':
+        case 'github.issues':
+        case 'github.actions':
+          setActiveLeftIcon('github');
+          setSidebarOpen(true);
+          break;
+        case 'view.aiChat':
+          setAiPanelOpen(true);
           break;
         case 'view.toggleFullScreen':
           if (document.fullscreenElement) {
@@ -399,6 +653,11 @@ function App() {
           setActiveBottomTab('TERMINAL');
           executeTerminalCommand('terminal.new');
           break;
+        case 'terminal.split':
+          setBottomPanelOpen(true);
+          setActiveBottomTab('TERMINAL');
+          executeTerminalCommand('echo Split terminal is queued for the terminal manager phase.');
+          break;
         case 'terminal.runTask': {
           const taskCommand = window.prompt('Enter terminal command to run', 'npm run build');
           if (!taskCommand) break;
@@ -410,11 +669,46 @@ function App() {
         case 'terminal.clear':
           executeTerminalCommand('clear');
           break;
-        case 'help.about':
-          window.alert('CodeForge\nCursor-style editor shell with AI + terminal integration.');
+        case 'terminal.runBuildTask':
+          setBottomPanelOpen(true);
+          setActiveBottomTab('TERMINAL');
+          executeTerminalCommand('npm run build');
           break;
+        case 'terminal.runActiveFile':
+          setBottomPanelOpen(true);
+          setActiveBottomTab('TERMINAL');
+          executeTerminalCommand(`echo Run active file: ${activeFilePath || activeFile}`);
+          break;
+        case 'terminal.runSelectedText':
+          setBottomPanelOpen(true);
+          setActiveBottomTab('TERMINAL');
+          executeTerminalCommand('echo Run selected text is queued for editor selection bridge.');
+          break;
+        case 'terminal.showRunningTasks':
+          setActiveBottomTab('OUTPUT');
+          setBottomPanelOpen(true);
+          break;
+        case 'terminal.kill':
+        case 'terminal.terminateTask':
+          executeTerminalCommand('terminal.new');
+          break;
+        case 'github.signIn':
+          setActiveLeftIcon('github');
+          setSidebarOpen(true);
+          window.alert('GitHub sign-in panel is staged. Next phase will connect OAuth/device login.');
+          break;
+        case 'github.clone':
+          setBottomPanelOpen(true);
+          setActiveBottomTab('TERMINAL');
+          executeTerminalCommand('git clone <repository-url>');
+          break;
+        case 'github.openRemote':
+        case 'help.documentation':
         case 'help.learn':
           window.open('https://github.com/sivmsrma/CodeForge', '_blank', 'noopener,noreferrer');
+          break;
+        case 'help.about':
+          window.alert('CodeForge\nCursor-style editor shell with AI + terminal integration.');
           break;
         default:
           break;
@@ -422,7 +716,7 @@ function App() {
     } catch (error) {
       window.alert(error.message || 'Unable to complete menu action.');
     }
-  }, [activeFile, editorCode, executeEditorCommand, executeTerminalCommand, loadFileByPath, saveCurrentFile]);
+  }, [activeFile, activeFilePath, editorCode, executeEditorCommand, executeTerminalCommand, loadFileByPath, openCommandPalette, saveCurrentFile]);
 
   const applyQuickSearchResult = useCallback(async (result) => {
     if (!result) return;
@@ -507,10 +801,19 @@ function App() {
 
   useEffect(() => {
     const onShortcut = (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'p') {
+      const isCommandPalette =
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === 'p';
+      const isQuickOpen =
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'p';
+
+      if (isCommandPalette || isQuickOpen) {
         event.preventDefault();
         setSearchFocused(true);
-        setQuickSearch('');
+        setQuickSearch(isCommandPalette ? '>' : '');
         const input = document.querySelector('.title-bar-input');
         input?.focus();
       }
@@ -545,18 +848,13 @@ function App() {
     refreshGitInfo();
   }, [refreshGitInfo, workspaceFiles]);
 
-  const openCommandPalette = useCallback(() => {
-    setSearchFocused(true);
-    setQuickSearch('');
-    const input = document.querySelector('.title-bar-input');
-    input?.focus();
-  }, []);
-
   return (
     <div className={`app-container ${isResizingSidebar || isResizingBottom || isResizingAI ? 'resizing' : ''}`}>
       <div className="title-bar">
         <div className="title-bar-left">
-          <div className="brand-mark">◆</div>
+          <div className="brand-mark">
+            <Codicon name="vscode" className="brand-codicon" />
+          </div>
           <div className="title-menu-strip" onClick={(e) => e.stopPropagation()}>
             {MENUS.map((menu) => (
               <span
@@ -574,8 +872,8 @@ function App() {
             ))}
           </div>
           <div className="title-nav-controls">
-            <span>←</span>
-            <span>→</span>
+            <span>{'<'}</span>
+            <span>{'>'}</span>
           </div>
           <div className="title-bar-search">
             <input
@@ -632,12 +930,7 @@ function App() {
               title="Toggle Chat"
               onClick={() => setAiPanelOpen((p) => !p)}
             >
-              <svg viewBox="0 0 24 24" className="title-icon" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M4 4.75C4 3.78 4.78 3 5.75 3h12.5C19.22 3 20 3.78 20 4.75v9.5c0 .97-.78 1.75-1.75 1.75H10.1l-3.9 3.2c-.65.53-1.6.07-1.6-.78V4.75Zm2 .25v11.18l2.9-2.38h9.35a.75.75 0 0 0 .75-.75v-8.3a.75.75 0 0 0-.75-.75H5.75A.75.75 0 0 0 5 5Z"
-                />
-              </svg>
+              <Codicon name="comment-discussion" className="title-icon" />
             </button>
             <button
               type="button"
@@ -645,12 +938,7 @@ function App() {
               title="Settings"
               onClick={() => setSettingsOpen((p) => !p)}
             >
-              <svg viewBox="0 0 24 24" className="title-icon" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 1h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.23-1.13.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 7.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.4 1.05.71 1.63.94l.36 2.54c.04.24.25.42.49.42h3.8c.24 0 .45-.18.49-.42l.36-2.54c.58-.23 1.13-.54 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z"
-                />
-              </svg>
+              <Codicon name="settings-gear" className="title-icon" />
             </button>
           </div>
           {settingsOpen && (
@@ -700,19 +988,25 @@ function App() {
               className="traffic-btn minimize"
               title="Minimize"
               onClick={() => window.codeforge?.windowAction?.('minimize')}
-            />
+            >
+              <Codicon name="chrome-minimize" />
+            </button>
             <button
               type="button"
               className={`traffic-btn maximize ${isWindowMaximized ? 'active' : ''}`}
               title={isWindowMaximized ? 'Restore' : 'Maximize'}
               onClick={() => window.codeforge?.windowAction?.('maximize-toggle')}
-            />
+            >
+              <Codicon name={isWindowMaximized ? 'chrome-restore' : 'chrome-maximize'} />
+            </button>
             <button
               type="button"
               className="traffic-btn close"
               title="Close"
               onClick={() => window.codeforge?.windowAction?.('close')}
-            />
+            >
+              <Codicon name="chrome-close" />
+            </button>
           </div>
         </div>
       </div>
@@ -720,18 +1014,22 @@ function App() {
       {activeMenu && (
         <div className="menu-dropdown">
           <div className="menu-content">
-            {activeMenu.items.map((item) => (
-              <div
-                key={item.id}
-                className="menu-item"
-                onClick={() => {
-                  setActiveMenuId(null);
-                  handleMenuAction(item.id);
-                }}
-              >
-                <span>{item.label}</span>
-                <span className="menu-shortcut">{item.shortcut || ''}</span>
-              </div>
+            {activeMenu.items.map((item, index) => (
+              item.type === 'separator' ? (
+                <div key={`separator-${activeMenu.id}-${index}`} className="menu-separator" />
+              ) : (
+                <div
+                  key={item.id}
+                  className="menu-item"
+                  onClick={() => {
+                    setActiveMenuId(null);
+                    handleMenuAction(item.id);
+                  }}
+                >
+                  <span>{item.label}</span>
+                  <span className="menu-shortcut">{item.shortcut || ''}</span>
+                </div>
+              )
             ))}
           </div>
         </div>
@@ -748,7 +1046,7 @@ function App() {
               onClick={() => setSidebarOpen(true)}
               title="Show Sidebar"
             >
-              ▸
+              {'>'}
             </button>
           )}
           <div className="sidebar-icons">
@@ -756,16 +1054,40 @@ function App() {
               <div
                 key={tab.id}
                 className={`sidebar-icon ${activeLeftIcon === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveLeftIcon(tab.id)}
+                onClick={() => {
+                  if (tab.id === 'ai-agent') {
+                    setAiPanelOpen(true);
+                    return;
+                  }
+                  setActiveLeftIcon(tab.id);
+                  setSidebarOpen(true);
+                }}
                 title={tab.label}
               >
-                <img className="activity-icon-img" src={activityIcons[tab.id]} alt="" aria-hidden="true" />
-                {tab.id === 'source-control' && Number(sourceControlCount) > 0 && (
+                <Codicon name={tab.icon} className="activity-codicon" />
+                {tab.id === 'source-control' && gitChanges.length > 0 && (
                   <span className="activity-badge">{sourceControlCount}</span>
                 )}
               </div>
             ))}
             <div className="sidebar-spacer" />
+            {leftBottomTabs.map((tab) => (
+              <div
+                key={tab.id}
+                className={`sidebar-icon ${activeLeftIcon === tab.id ? 'active' : ''}`}
+                onClick={() => {
+                  if (tab.id === 'settings') {
+                    setSettingsOpen((open) => !open);
+                    return;
+                  }
+                  setActiveLeftIcon(tab.id);
+                  setSidebarOpen(true);
+                }}
+                title={tab.label}
+              >
+                <Codicon name={tab.icon} className="activity-codicon" />
+              </div>
+            ))}
           </div>
 
           {sidebarOpen && (
@@ -791,14 +1113,48 @@ function App() {
                   <div className="sidebar-header">
                     <span>SEARCH</span>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Search files..."
-                    className="search-input"
-                    value={leftSearchQuery}
-                    onChange={(e) => setLeftSearchQuery(e.target.value)}
-                  />
+                  <div className="search-control-stack">
+                    <input
+                      type="text"
+                      placeholder="Search"
+                      className="search-input"
+                      value={leftSearchQuery}
+                      onChange={(e) => setLeftSearchQuery(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Replace"
+                      className="search-input"
+                      value={leftSearchReplace}
+                      onChange={(e) => setLeftSearchReplace(e.target.value)}
+                    />
+                    <div className="search-option-row">
+                      {[
+                        ['matchCase', 'Aa'],
+                        ['wholeWord', 'Ab'],
+                        ['regex', '.*']
+                      ].map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`search-option ${searchOptions[key] ? 'active' : ''}`}
+                          onClick={() => setSearchOptions((options) => ({
+                            ...options,
+                            [key]: !options[key]
+                          }))}
+                          title={key}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="left-search-results">
+                    {leftSearchQuery.trim() && (
+                      <div className="result-group-title">
+                        {leftSearchResults.length} file result{leftSearchResults.length === 1 ? '' : 's'}
+                      </div>
+                    )}
                     {leftSearchResults.map((filePath) => (
                       <div
                         key={filePath}
@@ -820,19 +1176,57 @@ function App() {
                   <div className="sidebar-header">
                     <span>SOURCE CONTROL</span>
                   </div>
+                  <div className="scm-toolbar">
+                    <button type="button" onClick={() => { refreshGitStatus(); refreshGitInfo(); }}>
+                      Refresh
+                    </button>
+                    <button type="button" onClick={() => setActiveBottomTab('OUTPUT')}>
+                      Output
+                    </button>
+                  </div>
+                  <div className="scm-summary">
+                    {['M', 'A', 'U', 'D'].map((status) => (
+                      <span key={status} className={`scm-pill ${status}`}>
+                        {getGitStatusLabel(status)} {gitSummary[status] || 0}
+                      </span>
+                    ))}
+                  </div>
                   <div className="git-status">
-                    <div>● Modified: 3 files</div>
-                    <div>● Added: 2 files</div>
+                    {gitChanges.length === 0 && (
+                      <div className="empty-state">No source control changes</div>
+                    )}
+                    {gitChanges.map((change) => (
+                      <button
+                        key={change.filePath}
+                        type="button"
+                        className="scm-change"
+                        onClick={() => loadFileByPath(change.filePath)}
+                      >
+                        <span className="scm-change-name">{change.fileName}</span>
+                        <span className="scm-change-path">{change.filePath}</span>
+                        <span className={`file-git-status ${change.status}`}>{change.status}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
               {activeLeftIcon === 'debug' && (
                 <div className="panel-content">
                   <div className="sidebar-header">
-                    <span>DEBUG</span>
+                    <span>RUN AND DEBUG</span>
                   </div>
                   <div className="debug-panel">
-                    <button onClick={() => handleMenuAction('run.debug')}>Start Debugging</button>
+                    <button type="button" className="primary-action" onClick={() => handleMenuAction('run.debug')}>
+                      Start Debugging
+                    </button>
+                    {['Variables', 'Watch', 'Call Stack', 'Breakpoints'].map((label) => (
+                      <div key={label} className="debug-section">
+                        <div className="debug-section-title">{label}</div>
+                        <div className="debug-section-body">
+                          {label === 'Breakpoints' ? 'No breakpoints' : 'Not available until a debug session starts'}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -841,9 +1235,99 @@ function App() {
                   <div className="sidebar-header">
                     <span>EXTENSIONS</span>
                   </div>
+                  <input
+                    type="text"
+                    placeholder="Search Extensions in Marketplace"
+                    className="search-input"
+                    value={extensionQuery}
+                    onChange={(e) => setExtensionQuery(e.target.value)}
+                  />
                   <div className="extensions-list">
-                    <div className="extension-item">AI Assistant</div>
-                    <div className="extension-item">Code Formatter</div>
+                    {visibleExtensions.map((extension) => (
+                      <div key={extension.id} className="extension-item">
+                        <div className="extension-icon">{extension.name.slice(0, 2).toUpperCase()}</div>
+                        <div className="extension-copy">
+                          <div className="extension-name">{extension.name}</div>
+                          <div className="extension-description">{extension.description}</div>
+                        </div>
+                        <span className={`extension-status ${extension.enabled ? 'enabled' : ''}`}>
+                          {extension.enabled ? 'Enabled' : 'Preview'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {activeLeftIcon === 'remote' && (
+                <div className="panel-content">
+                  <div className="sidebar-header">
+                    <span>REMOTE EXPLORER</span>
+                  </div>
+                  <div className="tool-panel-list">
+                    <button type="button" className="tool-panel-row">
+                      <Codicon name="server" />
+                      <span>SSH Targets</span>
+                    </button>
+                    <button type="button" className="tool-panel-row">
+                      <Codicon name="vm" />
+                      <span>WSL Targets</span>
+                    </button>
+                    <button type="button" className="tool-panel-row">
+                      <Codicon name="repo-clone" />
+                      <span>Dev Containers</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              {activeLeftIcon === 'github' && (
+                <div className="panel-content">
+                  <div className="sidebar-header">
+                    <span>GITHUB</span>
+                  </div>
+                  <div className="github-panel">
+                    <button type="button" className="primary-action" onClick={() => handleMenuAction('github.signIn')}>
+                      Sign in to GitHub
+                    </button>
+                    <div className="debug-section">
+                      <div className="debug-section-title">Pull Requests</div>
+                      <div className="debug-section-body">Connect GitHub to review pull requests and issues here.</div>
+                    </div>
+                    <div className="debug-section">
+                      <div className="debug-section-title">Actions</div>
+                      <div className="debug-section-body">Workflow runs will appear after GitHub integration is connected.</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {activeLeftIcon === 'account' && (
+                <div className="panel-content">
+                  <div className="sidebar-header">
+                    <span>ACCOUNTS</span>
+                  </div>
+                  <div className="tool-panel-list">
+                    <button type="button" className="tool-panel-row" onClick={() => handleMenuAction('github.signIn')}>
+                      <Codicon name="github" />
+                      <span>Sign in with GitHub</span>
+                    </button>
+                    <button type="button" className="tool-panel-row">
+                      <Codicon name="sync" />
+                      <span>Turn on Settings Sync</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              {activeLeftIcon === 'more' && (
+                <div className="panel-content">
+                  <div className="sidebar-header">
+                    <span>MORE VIEWS</span>
+                  </div>
+                  <div className="tool-panel-list">
+                    {['Testing', 'Timeline', 'Outline', 'Ports', 'Problems', 'Output'].map((label) => (
+                      <button key={label} type="button" className="tool-panel-row">
+                        <Codicon name="window" />
+                        <span>{label}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -856,8 +1340,19 @@ function App() {
             <div className="editor-tabs">
               <div className="tab active">
                 <span className="tab-name">{activeFile}{isDirty ? ' *' : ''}</span>
-                <span className="tab-close">×</span>
+                <span className="tab-close">x</span>
               </div>
+            </div>
+            <div className="editor-breadcrumbs">
+              {breadcrumbs.length > 0 ? (
+                breadcrumbs.map((part, index) => (
+                  <span key={`${part}-${index}`} className="breadcrumb-item">
+                    {part}
+                  </span>
+                ))
+              ) : (
+                <span className="breadcrumb-item">Untitled</span>
+              )}
             </div>
             <EditorPanel
               activeFile={activeFile}
@@ -876,35 +1371,23 @@ function App() {
               style={{ height: `${bottomPanelHeight}px`, position: 'relative' }}
             >
               <div className="bottom-tabs">
-                <div
-                  className={`bottom-tab ${activeBottomTab === 'PROBLEMS' ? 'active' : ''}`}
-                  onClick={() => setActiveBottomTab('PROBLEMS')}
-                >
-                  Problems
-                </div>
-                <div
-                  className={`bottom-tab ${activeBottomTab === 'OUTPUT' ? 'active' : ''}`}
-                  onClick={() => setActiveBottomTab('OUTPUT')}
-                >
-                  Output
-                </div>
-                <div
-                  className={`bottom-tab ${activeBottomTab === 'DEBUG CONSOLE' ? 'active' : ''}`}
-                  onClick={() => setActiveBottomTab('DEBUG CONSOLE')}
-                >
-                  Debug Console
-                </div>
-                <div
-                  className={`bottom-tab ${activeBottomTab === 'TERMINAL' ? 'active' : ''}`}
-                  onClick={() => setActiveBottomTab('TERMINAL')}
-                >
-                  Terminal
-                </div>
-                <div
-                  className={`bottom-tab ${activeBottomTab === 'PORTS' ? 'active' : ''}`}
-                  onClick={() => setActiveBottomTab('PORTS')}
-                >
-                  Ports
+                {BOTTOM_TABS.map((tab) => (
+                  <div
+                    key={tab}
+                    className={`bottom-tab ${activeBottomTab === tab ? 'active' : ''}`}
+                    onClick={() => setActiveBottomTab(tab)}
+                  >
+                    {tab === 'PROBLEMS' ? 'Problems' : tab === 'DEBUG CONSOLE' ? 'Debug Console' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                    {tab === 'PROBLEMS' && <span className="tab-counter">0</span>}
+                  </div>
+                ))}
+                <div className="bottom-panel-actions">
+                  <span className="terminal-profile"><Codicon name="terminal-powershell" /> powershell</span>
+                  <button type="button" title="New Terminal" onClick={() => handleMenuAction('terminal.new')}><Codicon name="add" /></button>
+                  <button type="button" title="Split Terminal" onClick={() => handleMenuAction('terminal.split')}><Codicon name="split-horizontal" /></button>
+                  <button type="button" title="Kill Terminal" onClick={() => handleMenuAction('terminal.kill')}><Codicon name="trash" /></button>
+                  <button type="button" title="More Actions"><Codicon name="ellipsis" /></button>
+                  <button type="button" title="Maximize Panel"><Codicon name="screen-full" /></button>
                 </div>
                 <button
                   type="button"
@@ -912,7 +1395,7 @@ function App() {
                   onClick={() => setBottomPanelOpen(false)}
                   title="Hide Bottom Panel"
                 >
-                  ×
+                  x
                 </button>
               </div>
               <div
@@ -923,23 +1406,32 @@ function App() {
                 {activeBottomTab === 'TERMINAL' && <TerminalComponent />}
                 {activeBottomTab === 'PROBLEMS' && (
                   <div className="problems-panel">
-                    <div className="no-problems">No problems detected</div>
+                    <div className="panel-empty-title">No problems detected</div>
+                    <div className="panel-empty-copy">Build and diagnostics output will appear here as the language service layer grows.</div>
                   </div>
                 )}
                 {activeBottomTab === 'OUTPUT' && (
                   <div className="output-panel">
-                    <div>[5:29:17 PM] Starting development server...</div>
-                    <div>[5:29:18 PM] VITE ready in 314ms</div>
+                    <div>[CodeForge] Workspace files: {workspaceFiles.length}</div>
+                    <div>[CodeForge] Git branch: {gitInfo.branch || 'unknown'}{gitInfo.isDirty ? ' (dirty)' : ''}</div>
+                    <div>[CodeForge] Source control changes: {gitChanges.length}</div>
                   </div>
                 )}
                 {activeBottomTab === 'DEBUG CONSOLE' && (
                   <div className="debug-console">
-                    <div>Debug console ready</div>
+                    <div>Debug console ready. Start a debug session from Run and Debug.</div>
                   </div>
                 )}
                 {activeBottomTab === 'PORTS' && (
                   <div className="ports-panel">
-                    <div>No ports in use</div>
+                    <div className="ports-grid">
+                      <span>Port</span>
+                      <span>Process</span>
+                      <span>Status</span>
+                      <span>5173</span>
+                      <span>Vite dev server</span>
+                      <span>Available when dev script is running</span>
+                    </div>
                   </div>
                 )}
               </div>
@@ -956,10 +1448,25 @@ function App() {
               className="resize-handle vertical-left"
               onMouseDown={() => setIsResizingAI(true)}
             />
-            <div className="sidebar-header">
-              <span>AI Chat</span>
+            <div className="sidebar-header ai-header">
+              <span>CHAT</span>
+              <div className="panel-header-actions">
+                <button type="button" title="New Chat"><Codicon name="add" /></button>
+                <button type="button" title="Chat Options"><Codicon name="chevron-down" /></button>
+                <button type="button" title="Settings"><Codicon name="settings-gear" /></button>
+                <button type="button" title="More Actions"><Codicon name="ellipsis" /></button>
+                <button type="button" title="Maximize Panel"><Codicon name="screen-full" /></button>
+                <button type="button" title="Close Chat" onClick={() => setAiPanelOpen(false)}><Codicon name="close" /></button>
+              </div>
             </div>
-            <AIPanel />
+            <AIPanel
+              activeFile={activeFile}
+              editorCode={editorCode}
+              onApplyCode={(nextCode) => {
+                setEditorCode(nextCode || '');
+                setIsDirty(true);
+              }}
+            />
           </div>
         )}
       </div>
@@ -969,8 +1476,8 @@ function App() {
           className="panel-restore bottom"
           onClick={() => setBottomPanelOpen(true)}
           title="Show Bottom Panel"
-        >
-          ▴
+          >
+          {'^'}
         </button>
       )}
       <div className="status-bar">
@@ -979,20 +1486,20 @@ function App() {
             <span className="status-glyph">{'<'}</span>
           </span>
           <span className="status-item" title="Git Branch">
-            <span className="status-branch-icon">⑂</span>
+            <span className="status-branch-icon">git</span>
             <span className="status-branch-text">
-              {gitInfo.branch || '—'}
+              {gitInfo.branch || '-'}
               {gitInfo.isDirty ? '*' : ''}
             </span>
           </span>
           <button type="button" className="status-item status-btn" title="Synchronize Changes" onClick={() => { refreshGitStatus(); refreshGitInfo(); }}>
-            ↻
+            refresh
           </button>
-          <span className="status-item" title="Errors">× 0</span>
-          <span className="status-item" title="Warnings">⚠ 0</span>
+          <span className="status-item" title="Errors">x 0</span>
+          <span className="status-item" title="Warnings">! 0</span>
         </div>
         <div className="status-right">
-          <span className="status-item">{isDirty ? '● unsaved' : 'saved'}</span>
+          <span className="status-item">{isDirty ? 'unsaved' : 'saved'}</span>
           <span className="status-item">UTF-8</span>
           <span className="status-item">LF</span>
           <span className="status-item">Spaces: 2</span>

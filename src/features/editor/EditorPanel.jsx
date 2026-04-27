@@ -179,11 +179,23 @@ function EditorPanel({ activeFile, code, onCodeChange, settings }) {
         'edit.redo': 'redo',
         'edit.find': 'actions.find',
         'edit.replace': 'editor.action.startFindReplaceAction',
+        'edit.toggleLineComment': 'editor.action.commentLine',
+        'edit.toggleBlockComment': 'editor.action.blockComment',
         'go.symbol': 'editor.action.quickOutline',
+        'go.definition': 'editor.action.revealDefinition',
+        'go.references': 'editor.action.goToReferences',
+        'go.line': 'editor.action.gotoLine',
+        'go.bracket': 'editor.action.jumpToBracket',
         'selection.expand': 'editor.action.smartSelect.expand',
         'selection.shrink': 'editor.action.smartSelect.shrink',
         'selection.copyLineUp': 'editor.action.copyLinesUpAction',
-        'selection.copyLineDown': 'editor.action.copyLinesDownAction'
+        'selection.copyLineDown': 'editor.action.copyLinesDownAction',
+        'selection.moveLineUp': 'editor.action.moveLinesUpAction',
+        'selection.moveLineDown': 'editor.action.moveLinesDownAction',
+        'selection.addCursorAbove': 'editor.action.insertCursorAbove',
+        'selection.addCursorBelow': 'editor.action.insertCursorBelow',
+        'selection.addCursorsToLineEnds': 'editor.action.insertCursorAtEndOfEachLineSelected',
+        'selection.selectAllOccurrences': 'editor.action.selectHighlights'
       };
 
       if (action === 'edit.selectAll') {

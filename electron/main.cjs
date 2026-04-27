@@ -4,6 +4,7 @@ const path = require("path");
 
 const workspaceRoot = process.cwd();
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
+const IGNORED_WORKSPACE_DIRS = new Set([".git", "node_modules", "dist", ".vite"]);
 
 function resolveWorkspacePath(relativeOrAbsolutePath) {
   if (!relativeOrAbsolutePath || typeof relativeOrAbsolutePath !== "string") {
@@ -31,7 +32,7 @@ function resolveTerminalCwd(candidatePath) {
   const rawPath = candidatePath && typeof candidatePath === "string"
     ? candidatePath
     : workspaceRoot;
-  return path.resolve(rawPath);
+  return resolveWorkspacePath(rawPath);
 }
 
 function buildPrompt(instruction, code) {
@@ -81,7 +82,7 @@ async function listWorkspaceFiles(currentDir) {
   const entries = await fs.readdir(currentDir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    if (entry.name === ".git") continue;
+    if (entry.isDirectory() && IGNORED_WORKSPACE_DIRS.has(entry.name)) continue;
     const fullPath = path.join(currentDir, entry.name);
     if (entry.isDirectory()) {
       const nested = await listWorkspaceFiles(fullPath);
@@ -294,6 +295,8 @@ app.whenReady().then(() => {
     return files.sort((a, b) => a.localeCompare(b));
   });
 
+  ipcMain.handle("cf:get-workspace-root", async () => workspaceRoot);
+
   ipcMain.handle("cf:create-folder", async (_event, folderPath) => {
     const absolutePath = resolveWorkspacePath(folderPath);
     await fs.mkdir(absolutePath, { recursive: true });
@@ -420,7 +423,7 @@ app.whenReady().then(() => {
     });
 
     const branch = (await run("git rev-parse --abbrev-ref HEAD")) || "";
-    const dirtyList = (await run("git diff --name-only")) || "";
+    const dirtyList = (await run("git status --porcelain")) || "";
     const isDirty = Boolean(dirtyList.trim());
     return { branch, isDirty };
   });

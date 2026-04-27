@@ -1,23 +1,41 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 
 function TerminalComponent() {
-  const workspaceRoot = 'D:\\Newfolder\\CodeForge';
   const [input, setInput] = useState('');
-  const [currentPath, setCurrentPath] = useState(workspaceRoot);
-  const [history, setHistory] = useState([`PS ${workspaceRoot}>`]);
+  const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [currentPath, setCurrentPath] = useState('');
+  const [history, setHistory] = useState(['Starting integrated terminal...']);
   const [commandHistory, setCommandHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const terminalEndRef = useRef(null);
+  const promptPath = currentPath || workspaceRoot || 'Workspace';
 
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [history]);
 
-  const executeCommand = async (command) => {
+  useEffect(() => {
+    let alive = true;
+    const loadWorkspaceRoot = async () => {
+      const root = await window.codeforge?.getWorkspaceRoot?.();
+      if (!alive) return;
+      const nextRoot = root || 'Workspace';
+      setWorkspaceRoot(nextRoot);
+      setCurrentPath(nextRoot);
+      setHistory([`PS ${nextRoot}>`]);
+    };
+
+    loadWorkspaceRoot();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const executeCommand = useCallback(async (command) => {
     if (!command.trim()) return;
 
     const newHistory = [...history];
-    newHistory.push(`PS ${currentPath}> ${command}`);
+    newHistory.push(`PS ${promptPath}> ${command}`);
     setHistory(newHistory);
 
     // Add to command history
@@ -29,13 +47,13 @@ function TerminalComponent() {
       const lowerTrimmed = trimmedCommand.toLowerCase();
 
       if (lowerTrimmed === 'clear' || lowerTrimmed === 'cls') {
-        setHistory([`PS ${currentPath}>`]);
+        setHistory([`PS ${promptPath}>`]);
         setInput('');
         return;
       }
 
       if (lowerTrimmed === 'pwd') {
-        newHistory.push(currentPath);
+        newHistory.push(promptPath);
         setHistory(newHistory);
         setInput('');
         return;
@@ -44,7 +62,7 @@ function TerminalComponent() {
       if (lowerTrimmed.startsWith('cd')) {
         const target = trimmedCommand.slice(2).trim();
         if (window.codeforge?.resolveDirectory) {
-          const resolved = await window.codeforge.resolveDirectory(currentPath, target || '.');
+          const resolved = await window.codeforge.resolveDirectory(promptPath, target || '.');
           setCurrentPath(resolved);
           setHistory(newHistory);
           setInput('');
@@ -64,7 +82,7 @@ function TerminalComponent() {
         const mockCommands = {
           'ls': 'docs  electron  node_modules  src  package.json  README.md',
           'dir': 'docs  electron  node_modules  src  package.json  README.md',
-          'pwd': currentPath,
+          'pwd': promptPath,
           'help': 'Available commands: ls, dir, pwd, clear, cls, help, echo, mkdir, cd',
         };
 
@@ -77,7 +95,7 @@ function TerminalComponent() {
         } else if (cmd === 'mkdir') {
           result = `Directory created: ${args}`;
         } else if (cmd === 'cd') {
-          result = `Changed directory to: ${args || currentPath}`;
+          result = `Changed directory to: ${args || promptPath}`;
         } else if (mockCommands[cmd]) {
           result = mockCommands[cmd];
         } else {
@@ -93,7 +111,7 @@ function TerminalComponent() {
       setHistory(newHistory);
       setInput('');
     }
-  };
+  }, [history, promptPath]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -126,12 +144,12 @@ function TerminalComponent() {
     }
   };
 
-  const handleClear = () => {
-    setHistory([`PS ${currentPath}>`]);
+  const handleClear = useCallback(() => {
+    setHistory([`PS ${promptPath}>`]);
     setInput('');
     setCommandHistory([]);
     setHistoryIndex(-1);
-  };
+  }, [promptPath]);
 
   useEffect(() => {
     const handler = (event) => {
@@ -146,7 +164,7 @@ function TerminalComponent() {
 
     window.addEventListener('cf:terminal-command', handler);
     return () => window.removeEventListener('cf:terminal-command', handler);
-  });
+  }, [executeCommand, handleClear]);
 
   return (
     <div className="terminal">
@@ -157,7 +175,7 @@ function TerminalComponent() {
           </div>
         ))}
         <div className="terminal-input-line">
-          <span>{`PS ${currentPath}> `}</span>
+          <span>{`PS ${promptPath}> `}</span>
           <input
             type="text"
             value={input}

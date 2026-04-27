@@ -1,8 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import newFileIcon from '../../../assets/NewFile.png';
-import newFolderIcon from '../../../assets/newFolder.png';
-import refreshIcon from '../../../assets/refresh.png';
-import collapseAllIcon from '../../../assets/CollapseAll.png';
 
 function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorkspaceRefresh, gitMap = {} }) {
   const [expandedFolders, setExpandedFolders] = useState(new Set(['']));
@@ -130,7 +126,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
     }
     if (meta.kind === 'hash') return <span className="file-icon-text">#</span>;
     if (meta.kind === 'braces') return <span className="file-icon-text">{'{}'}</span>;
-    if (meta.kind === 'doc') return <span className="file-icon-text">ⓘ</span>;
+    if (meta.kind === 'doc') return <span className="codicon codicon-file-text file-codicon" aria-hidden="true" />;
     if (meta.kind === 'angle') return <span className="file-icon-text">{'<>'}</span>;
     return <span className="file-icon-text">{meta.text}</span>;
   };
@@ -335,7 +331,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
               onContextMenu={(event) => handleContextMenu(event, item)}
             >
               <span className="folder-icon">
-                {isExpanded ? '▾' : '▸'}
+                <span className={`codicon ${isExpanded ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} aria-hidden="true" />
               </span>
               <span className="folder-name" title={item.name}>{item.name}</span>
               <span className="file-status-spacer" />
@@ -396,21 +392,23 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
               onContextMenu={(event) => handleContextMenu(event, files)}
               title="Workspace"
             >
-              <span className="folder-icon">{expandedFolders.has('') ? '▾' : '▸'}</span>
+              <span className="folder-icon">
+                <span className={`codicon ${expandedFolders.has('') ? 'codicon-chevron-down' : 'codicon-chevron-right'}`} aria-hidden="true" />
+              </span>
               <span className="folder-name" title="CODEFORGE">CODEFORGE</span>
             </div>
             <div className="workspace-row-actions" onClick={(e) => e.stopPropagation()}>
               <button type="button" className="explorer-icon-btn" title="New File" onClick={() => openRootDialog('newFile')}>
-                <img className="explorer-icon-img" src={newFileIcon} alt="" aria-hidden="true" />
+                <span className="codicon codicon-new-file" aria-hidden="true" />
               </button>
               <button type="button" className="explorer-icon-btn" title="New Folder" onClick={() => openRootDialog('newFolder')}>
-                <img className="explorer-icon-img" src={newFolderIcon} alt="" aria-hidden="true" />
+                <span className="codicon codicon-new-folder" aria-hidden="true" />
               </button>
               <button type="button" className="explorer-icon-btn" title="Refresh" onClick={() => onWorkspaceRefresh?.()}>
-                <img className="explorer-icon-img" src={refreshIcon} alt="" aria-hidden="true" />
+                <span className="codicon codicon-refresh" aria-hidden="true" />
               </button>
               <button type="button" className="explorer-icon-btn" title="Collapse All" onClick={collapseAll}>
-                <img className="explorer-icon-img" src={collapseAllIcon} alt="" aria-hidden="true" />
+                <span className="codicon codicon-collapse-all" aria-hidden="true" />
               </button>
             </div>
           </div>

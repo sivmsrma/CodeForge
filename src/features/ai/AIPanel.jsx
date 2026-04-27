@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import uploadImageIcon from '../../../assets/UploadImage.png';
 
-function AIPanel() {
+function AIPanel({ activeFile, editorCode, onApplyCode }) {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -45,16 +44,41 @@ function AIPanel() {
     setIsLoading(true);
 
     try {
-      // Mock AI response - in real app, this would call Ollama
-      setTimeout(() => {
+      if (!window.codeforge?.askAI) {
         const aiResponse = {
           id: Date.now() + 1,
           type: 'ai',
-          content: `I understand your request${userMessage.content ? `: "${userMessage.content}"` : ''}${userMessage.images?.length ? ` with ${userMessage.images.length} image(s)` : ''}. This is a mock response. In the real implementation, I would:\n\n1. Analyze your request\n2. Inspect uploaded image context\n3. Generate appropriate code or explanation\n4. Apply changes to your files\n\nWould you like me to help you with something specific?`
+          content: 'AI bridge is not available in this runtime. Open the Electron app to use local Ollama edits.'
         };
         setMessages(prev => [...prev, aiResponse]);
         setIsLoading(false);
-      }, 1000);
+        return;
+      }
+
+      if (!editorCode?.trim()) {
+        const aiResponse = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: 'Open a file first, then ask me to change or explain that code.'
+        };
+        setMessages(prev => [...prev, aiResponse]);
+        setIsLoading(false);
+        return;
+      }
+
+      const updatedCode = await window.codeforge.askAI({
+        instruction: userMessage.content || 'Improve this file while preserving behavior.',
+        code: editorCode
+      });
+
+      const aiResponse = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: `Generated an offline Ollama edit for ${activeFile || 'the active file'}. Review it, then apply it to the editor.`,
+        suggestedCode: updatedCode
+      };
+      setMessages(prev => [...prev, aiResponse]);
+      setIsLoading(false);
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,
@@ -108,6 +132,17 @@ function AIPanel() {
             className={`ai-message ${message.type}`}
           >
             {message.content}
+            {message.suggestedCode && (
+              <div className="ai-suggestion-actions">
+                <button
+                  type="button"
+                  className="ai-apply-button"
+                  onClick={() => onApplyCode?.(message.suggestedCode)}
+                >
+                  Apply to Editor
+                </button>
+              </div>
+            )}
             {message.images?.length > 0 && (
               <div className="ai-message-images">
                 {message.images.map((image) => (
@@ -157,7 +192,7 @@ function AIPanel() {
             type="button"
             title="Upload image"
           >
-            <img className="ai-upload-icon-img" src={uploadImageIcon} alt="" aria-hidden="true" />
+            <span className="codicon codicon-cloud-upload" aria-hidden="true" />
           </button>
           {canSend && (
             <button
@@ -166,7 +201,7 @@ function AIPanel() {
               type="button"
               title="Send"
             >
-              ↑
+              <span className="codicon codicon-send" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -182,7 +217,7 @@ function AIPanel() {
                 className="ai-upload-remove"
                 onClick={() => removeImage(image.id)}
               >
-                ×
+                x
               </button>
             </div>
           ))}
