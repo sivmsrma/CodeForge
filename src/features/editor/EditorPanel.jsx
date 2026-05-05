@@ -179,14 +179,26 @@ function EditorPanel({ activeFile, code, onCodeChange, settings }) {
         'edit.redo': 'redo',
         'edit.find': 'actions.find',
         'edit.replace': 'editor.action.startFindReplaceAction',
+        'edit.toggleComment': 'editor.action.commentLine',
+        'edit.formatDocument': 'editor.action.formatDocument',
         'go.symbol': 'editor.action.quickOutline',
+        'go.line': 'editor.action.gotoLine',
+        'go.definition': 'editor.action.revealDefinition',
+        'go.reference': 'editor.action.goToReferences',
         'selection.expand': 'editor.action.smartSelect.expand',
         'selection.shrink': 'editor.action.smartSelect.shrink',
         'selection.copyLineUp': 'editor.action.copyLinesUpAction',
-        'selection.copyLineDown': 'editor.action.copyLinesDownAction'
+        'selection.copyLineDown': 'editor.action.copyLinesDownAction',
+        'selection.moveLineUp': 'editor.action.moveLinesUpAction',
+        'selection.moveLineDown': 'editor.action.moveLinesDownAction',
+        'selection.selectLine': 'expandLineSelection'
       };
 
       if (action === 'edit.selectAll') {
+        editor.trigger('menu', 'editor.action.selectAll', null);
+        return;
+      }
+      if (action === 'selection.selectAll') {
         editor.trigger('menu', 'editor.action.selectAll', null);
         return;
       }
@@ -207,6 +219,24 @@ function EditorPanel({ activeFile, code, onCodeChange, settings }) {
 
     window.addEventListener('cf:editor-command', handler);
     return () => window.removeEventListener('cf:editor-command', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event) => {
+      const { filePath, lineNumber } = event.detail || {};
+      if (!editorRef.current || !lineNumber) return;
+      
+      // In a real multi-file editor, we'd check if activeFile matches filePath
+      // But for now, we assume the parent has already set the active file.
+      
+      const editor = editorRef.current;
+      editor.revealLineInCenter(lineNumber);
+      editor.setPosition({ lineNumber, column: 1 });
+      editor.focus();
+    };
+
+    window.addEventListener('cf:editor-scroll-to-line', handler);
+    return () => window.removeEventListener('cf:editor-scroll-to-line', handler);
   }, []);
 
   return (

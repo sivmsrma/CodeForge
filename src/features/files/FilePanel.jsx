@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import newFileIcon from '../../../assets/NewFile.png';
-import newFolderIcon from '../../../assets/newFolder.png';
-import refreshIcon from '../../../assets/refresh.png';
-import collapseAllIcon from '../../../assets/CollapseAll.png';
+import { VSIcon } from '../../shared/components/VSIcons';
 
-function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorkspaceRefresh, gitMap = {} }) {
+function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], workspaceName = 'CODEFORGE', onWorkspaceRefresh, gitMap = {} }) {
   const [expandedFolders, setExpandedFolders] = useState(new Set(['']));
   const [contextMenu, setContextMenu] = useState(null);
   const [explorerOpen, setExplorerOpen] = useState(true);
@@ -14,7 +11,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
   const [notice, setNotice] = useState('');
 
   const files = useMemo(() => {
-    const root = { name: 'CODEFORGE', path: '', type: 'folder', children: [] };
+    const root = { name: workspaceName, path: '', type: 'folder', children: [] };
     const nodeMap = new Map();
 
     const ensureFolder = (folderPath) => {
@@ -25,12 +22,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
       const folderName = parts[parts.length - 1];
       const parentPath = parts.slice(0, -1).join('/');
       const parentChildren = ensureFolder(parentPath);
-      const folderNode = {
-        name: folderName,
-        path: folderPath,
-        type: 'folder',
-        children: []
-      };
+      const folderNode = { name: folderName, path: folderPath, type: 'folder', children: [] };
       parentChildren.push(folderNode);
       nodeMap.set(folderPath, folderNode);
       return folderNode.children;
@@ -42,11 +34,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
       const fileName = parts[parts.length - 1];
       const folderPath = parts.slice(0, -1).join('/');
       const parentChildren = ensureFolder(folderPath);
-      parentChildren.push({
-        name: fileName,
-        path: normalized,
-        type: 'file'
-      });
+      parentChildren.push({ name: fileName, path: normalized, type: 'file' });
     });
 
     const sortNodes = (items) => {
@@ -83,56 +71,41 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
       return best;
     };
     computeFolderGit(root);
+
     return root;
   }, [gitMap, workspaceFiles]);
 
   const toggleFolder = (folderPath) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(folderPath)) {
-      newExpanded.delete(folderPath);
-    } else {
-      newExpanded.add(folderPath);
-    }
-    setExpandedFolders(newExpanded);
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderPath)) next.delete(folderPath);
+      else next.add(folderPath);
+      return next;
+    });
   };
 
   const getFileIcon = (fileName) => {
     const extension = (fileName.split('.').pop() || '').toLowerCase();
     const map = {
-      js: { kind: 'text', text: 'JS', color: '#f1e05a' },
-      cjs: { kind: 'text', text: 'JS', color: '#f1e05a' },
-      mjs: { kind: 'text', text: 'JS', color: '#f1e05a' },
-      ts: { kind: 'text', text: 'TS', color: '#3178c6' },
-      tsx: { kind: 'text', text: 'TS', color: '#3178c6' },
-      jsx: { kind: 'react', color: '#61dafb' },
-      css: { kind: 'hash', color: '#a074c4' },
-      json: { kind: 'braces', color: '#cbcb41' },
-      md: { kind: 'doc', color: '#8b949e' },
-      html: { kind: 'angle', color: '#e34c26' },
-      yml: { kind: 'text', text: 'YML', color: '#aab2bd' },
-      yaml: { kind: 'text', text: 'YML', color: '#aab2bd' },
-      txt: { kind: 'doc', color: '#8b949e' }
+      js: { icon: 'VscFileCode', color: '#f1e05a' },
+      cjs: { icon: 'VscFileCode', color: '#f1e05a' },
+      mjs: { icon: 'VscFileCode', color: '#f1e05a' },
+      ts: { icon: 'VscFileCode', color: '#3178c6' },
+      tsx: { icon: 'VscFileCode', color: '#3178c6' },
+      jsx: { icon: 'VscFileCode', color: '#61dafb' },
+      css: { icon: 'VscSymbolClass', color: '#a074c4' },
+      json: { icon: 'VscJson', color: '#cbcb41' },
+      md: { icon: 'VscMarkdown', color: '#8b949e' },
+      html: { icon: 'VscCode', color: '#e34c26' },
+      yml: { icon: 'VscSettings', color: '#aab2bd' },
+      yaml: { icon: 'VscSettings', color: '#aab2bd' },
+      txt: { icon: 'VscFileText', color: '#8b949e' },
+      png: { icon: 'VscFileMedia', color: '#d19a66' },
+      jpg: { icon: 'VscFileMedia', color: '#d19a66' },
+      jpeg: { icon: 'VscFileMedia', color: '#d19a66' },
+      svg: { icon: 'VscFileMedia', color: '#d19a66' }
     };
-    return map[extension] || { kind: 'text', text: extension ? extension.toUpperCase().slice(0, 3) : 'FILE', color: '#8b949e' };
-  };
-
-  const renderIcon = (meta) => {
-    if (!meta) return null;
-    if (meta.kind === 'react') {
-      return (
-        <svg viewBox="0 0 24 24" className="file-icon-svg" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M12 14.6c1.44 0 2.6-1.17 2.6-2.6S13.44 9.4 12 9.4 9.4 10.57 9.4 12s1.17 2.6 2.6 2.6Zm0-11c2.08 0 4.05.34 5.58.94 1.8.7 2.9 1.72 2.9 2.9 0 1.12-.98 2.08-2.52 2.76.22.62.34 1.27.34 1.94 0 .67-.12 1.32-.34 1.94 1.54.68 2.52 1.64 2.52 2.76 0 1.18-1.1 2.2-2.9 2.9-1.53.6-3.5.94-5.58.94-2.08 0-4.05-.34-5.58-.94-1.8-.7-2.9-1.72-2.9-2.9 0-1.12.98-2.08 2.52-2.76A5.8 5.8 0 0 1 5.8 12c0-.67.12-1.32.34-1.94C4.6 9.38 3.62 8.42 3.62 7.3c0-1.18 1.1-2.2 2.9-2.9C7.95 3.8 9.92 3.6 12 3.6Zm0 2c-1.84 0-3.55.29-4.88.8-1.03.4-1.5.82-1.5.9 0 .1.52.55 1.72 1.03 1.15.46 2.68.8 4.66.95.63-1.02 1.35-1.92 2.14-2.66-.66-.67-1.36-1.23-2.14-1.62Zm2.76 2.82c-.63.6-1.22 1.34-1.76 2.18.32.5.62 1.02.9 1.56.6-.08 1.16-.2 1.68-.34.3-.66.46-1.4.46-2.14 0-.43-.05-.85-.12-1.26-.36 0-.75 0-1.16 0Zm-5.52 0c-.41 0-.8 0-1.16 0-.07.41-.12.83-.12 1.26 0 .74.16 1.48.46 2.14.52.14 1.08.26 1.68.34.28-.54.58-1.06.9-1.56-.54-.84-1.13-1.58-1.76-2.18Zm2.76 1.58c.34.54.66 1.1.94 1.68.36 0 .72.02 1.08.02.36 0 .72-.01 1.08-.02.28-.58.6-1.14.94-1.68-.34-.54-.66-1.1-.94-1.68-.36 0-.72-.02-1.08-.02-.36 0-.72.01-1.08.02-.28.58-.6 1.14-.94 1.68Zm-5.96 1.94c-1.2.48-1.72.93-1.72 1.03 0 .08.47.5 1.5.9 1.33.51 3.04.8 4.88.8.78-.39 1.48-.95 2.14-1.62-.79-.74-1.5-1.64-2.14-2.66-1.98.15-3.51.49-4.66.95Zm11.92 0c-1.15-.46-2.68-.8-4.66-.95-.63 1.02-1.35 1.92-2.14 2.66.66.67 1.36 1.23 2.14 1.62 1.84 0 3.55-.29 4.88-.8 1.03-.4 1.5-.82 1.5-.9 0-.1-.52-.55-1.72-1.03Z"
-          />
-        </svg>
-      );
-    }
-    if (meta.kind === 'hash') return <span className="file-icon-text">#</span>;
-    if (meta.kind === 'braces') return <span className="file-icon-text">{'{}'}</span>;
-    if (meta.kind === 'doc') return <span className="file-icon-text">ⓘ</span>;
-    if (meta.kind === 'angle') return <span className="file-icon-text">{'<>'}</span>;
-    return <span className="file-icon-text">{meta.text}</span>;
+    return map[extension] || { icon: 'VscFile', color: '#8b949e' };
   };
 
   useEffect(() => {
@@ -147,11 +120,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
 
   const handleContextMenu = (event, item) => {
     event.preventDefault();
-    setContextMenu({
-      x: event.clientX,
-      y: event.clientY,
-      item
-    });
+    setContextMenu({ x: event.clientX, y: event.clientY, item });
   };
 
   const openDialog = (type) => {
@@ -168,11 +137,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
   };
 
   const openRootDialog = (type) => {
-    const itemPath = '';
-    const isFolder = true;
-    const basePath = '';
-    const currentName = 'CODEFORGE';
-    setDialog({ type, itemPath, isFolder, basePath, currentName });
+    setDialog({ type, itemPath: '', isFolder: true, basePath: '', currentName: workspaceName });
     setDialogInput('');
     setDialogError('');
     setContextMenu(null);
@@ -211,9 +176,21 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
             await window.codeforge.revealInExplorer(itemPath);
           }
           break;
-        case 'openTerminal':
-          window.dispatchEvent(new CustomEvent('cf:terminal-command', { detail: { command: 'pwd' } }));
+        case 'openTerminal': {
+          const targetCwd = (isFolder ? itemPath : basePath) || '.';
+          window.dispatchEvent(new CustomEvent('cf:open-terminal-panel'));
+          window.dispatchEvent(
+            new CustomEvent('cf:terminal-command', {
+              detail: {
+                command: {
+                  action: 'new',
+                  cwd: targetCwd
+                }
+              }
+            })
+          );
           break;
+        }
         case 'findInFolder':
           window.dispatchEvent(new CustomEvent('cf:explorer-search-focus', { detail: { path: basePath || itemPath } }));
           break;
@@ -223,14 +200,12 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
             await navigator.clipboard.writeText(itemPath);
           }
           break;
-        case 'rename': {
+        case 'rename':
           openDialog('rename');
           return;
-        }
         case 'delete':
           openDialog('delete');
           return;
-          break;
         default:
           break;
       }
@@ -318,8 +293,8 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
     setExpandedFolders(new Set(['']));
   };
 
-  const renderFileTree = (items, level = 0) => {
-    return items.map((item, index) => {
+  const renderFileTree = (items, level = 0) =>
+    items.map((item, index) => {
       const isActive = activeFilePath === item.path;
       const isExpanded = expandedFolders.has(item.path);
       const paddingLeft = `${level * 16}px`;
@@ -335,22 +310,20 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
               onContextMenu={(event) => handleContextMenu(event, item)}
             >
               <span className="folder-icon">
-                {isExpanded ? '▾' : '▸'}
+                <VSIcon name={isExpanded ? 'VscChevronDown' : 'VscChevronRight'} size={16} />
+                <VSIcon name={isExpanded ? 'VscFolderOpened' : 'VscFolder'} size={16} color="#d4d4d4" />
               </span>
               <span className="folder-name" title={item.name}>{item.name}</span>
               <span className="file-status-spacer" />
               {folderStatus && <span className={`folder-git-dot ${folderStatus}`} />}
             </div>
-            {isExpanded && item.children && (
-              <div>
-                {renderFileTree(item.children, level + 1)}
-              </div>
-            )}
+            {isExpanded && item.children && <div>{renderFileTree(item.children, level + 1)}</div>}
           </div>
         );
       }
 
       const status = gitMap[item.path];
+      const meta = getFileIcon(item.name);
 
       return (
         <div
@@ -360,33 +333,28 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
           onClick={() => onFileSelect(item.path)}
           onContextMenu={(event) => handleContextMenu(event, item)}
         >
-          {(() => {
-            const meta = getFileIcon(item.name);
-            return (
-              <span className="file-icon-badge" style={{ color: meta.color }}>
-                {renderIcon(meta)}
-              </span>
-            );
-          })()}
+          <span className="file-icon-badge" style={{ color: meta.color }}>
+            <VSIcon name={meta.icon} size={16} color={meta.color} />
+          </span>
           <span className="file-name" title={item.name}>{item.name}</span>
           <span className="file-status-spacer" />
           {status && <span className={`file-git-status ${status}`}>{status}</span>}
         </div>
       );
     });
-  };
 
   return (
     <div>
       <div className="sidebar-header">
-        <span className="section-toggle" onClick={() => setExplorerOpen((p) => !p)}>
-          <span>{explorerOpen ? '▾' : '▸'}</span>
+        <span className="section-toggle" onClick={() => setExplorerOpen((prev) => !prev)}>
+          <VSIcon name={explorerOpen ? 'VscChevronDown' : 'VscChevronRight'} size={16} />
           <span>EXPLORER</span>
         </span>
         <div className="explorer-actions">
-          <span>⋯</span>
+          <VSIcon name="VscEllipsis" size={14} />
         </div>
       </div>
+
       {explorerOpen && (
         <div className="file-tree">
           <div className="workspace-row">
@@ -396,21 +364,25 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
               onContextMenu={(event) => handleContextMenu(event, files)}
               title="Workspace"
             >
-              <span className="folder-icon">{expandedFolders.has('') ? '▾' : '▸'}</span>
-              <span className="folder-name" title="CODEFORGE">CODEFORGE</span>
+              <span className="folder-icon">
+                <VSIcon name={expandedFolders.has('') ? 'VscChevronDown' : 'VscChevronRight'} size={16} />
+                <VSIcon name={expandedFolders.has('') ? 'VscFolderOpened' : 'VscFolder'} size={16} color="#d4d4d4" />
+              </span>
+              <span className="folder-name" title={workspaceName}>{workspaceName}</span>
             </div>
-            <div className="workspace-row-actions" onClick={(e) => e.stopPropagation()}>
+
+            <div className="workspace-row-actions" onClick={(event) => event.stopPropagation()}>
               <button type="button" className="explorer-icon-btn" title="New File" onClick={() => openRootDialog('newFile')}>
-                <img className="explorer-icon-img" src={newFileIcon} alt="" aria-hidden="true" />
+                <VSIcon name="new-file" size={16} />
               </button>
               <button type="button" className="explorer-icon-btn" title="New Folder" onClick={() => openRootDialog('newFolder')}>
-                <img className="explorer-icon-img" src={newFolderIcon} alt="" aria-hidden="true" />
+                <VSIcon name="new-folder" size={16} />
               </button>
               <button type="button" className="explorer-icon-btn" title="Refresh" onClick={() => onWorkspaceRefresh?.()}>
-                <img className="explorer-icon-img" src={refreshIcon} alt="" aria-hidden="true" />
+                <VSIcon name="refresh" size={16} />
               </button>
               <button type="button" className="explorer-icon-btn" title="Collapse All" onClick={collapseAll}>
-                <img className="explorer-icon-img" src={collapseAllIcon} alt="" aria-hidden="true" />
+                <VSIcon name="collapse-all" size={16} />
               </button>
             </div>
           </div>
@@ -418,6 +390,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
           {expandedFolders.has('') && renderFileTree(files.children, 0)}
         </div>
       )}
+
       {contextMenu && (
         <div
           className="explorer-context-menu"
@@ -441,6 +414,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
           )}
         </div>
       )}
+
       {dialog && (
         <div className="explorer-dialog-overlay" onClick={closeDialog}>
           <div className="explorer-dialog" onClick={(event) => event.stopPropagation()}>
@@ -475,6 +449,7 @@ function FilePanel({ activeFilePath, onFileSelect, workspaceFiles = [], onWorksp
           </div>
         </div>
       )}
+
       {notice && <div className="explorer-notice">{notice}</div>}
     </div>
   );

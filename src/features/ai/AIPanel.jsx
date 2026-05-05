@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import uploadImageIcon from '../../../assets/UploadImage.png';
+import React, { useEffect, useRef, useState } from 'react';
+import { VSIcon } from '../../shared/components/VSIcons';
 
 function AIPanel() {
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'ai',
-      content: 'Hello! I\'m your AI coding assistant. I can help you write code, fix bugs, explain code, and more. What would you like to work on?'
+      content: 'Hello! I am your local AI coding assistant. Ask me for code changes, debugging, or reviews.'
     }
   ]);
   const [input, setInput] = useState('');
@@ -15,62 +15,70 @@ function AIPanel() {
   const messagesEndRef = useRef(null);
   const imageInputRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => {
-    return () => {
-      selectedImages.forEach((file) => URL.revokeObjectURL(file.url));
-    };
+  useEffect(() => () => {
+    selectedImages.forEach((file) => URL.revokeObjectURL(file.url));
   }, [selectedImages]);
 
   const handleSendMessage = async () => {
     if ((!input.trim() && selectedImages.length === 0) || isLoading) return;
 
+    const promptText = input.trim();
     const userMessage = {
       id: Date.now(),
       type: 'user',
-      content: input.trim(),
+      content: promptText,
       images: selectedImages
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setSelectedImages([]);
     setIsLoading(true);
 
     try {
-      // Mock AI response - in real app, this would call Ollama
-      setTimeout(() => {
-        const aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: `I understand your request${userMessage.content ? `: "${userMessage.content}"` : ''}${userMessage.images?.length ? ` with ${userMessage.images.length} image(s)` : ''}. This is a mock response. In the real implementation, I would:\n\n1. Analyze your request\n2. Inspect uploaded image context\n3. Generate appropriate code or explanation\n4. Apply changes to your files\n\nWould you like me to help you with something specific?`
-        };
-        setMessages(prev => [...prev, aiResponse]);
-        setIsLoading(false);
-      }, 1000);
-    } catch (error) {
-      const errorMessage = {
+      const fallbackPrompt = userMessage.images?.length
+        ? `Please help with this coding task. I attached ${userMessage.images.length} image(s).`
+        : 'Help me with coding.';
+      const instruction = promptText || fallbackPrompt;
+
+      let answer = '';
+      if (window.codeforge?.askAI) {
+        answer = await window.codeforge.askAI({
+          instruction,
+          code: '',
+          model: 'deepseek-coder:6.7b'
+        });
+      } else {
+        answer = `AI bridge unavailable. Request captured: ${instruction}`;
+      }
+
+      const aiResponse = {
         id: Date.now() + 1,
         type: 'ai',
-        content: `Error: ${error.message}. Please try again.`
+        content: String(answer || 'No response generated.')
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, aiResponse]);
+      setIsLoading(false);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: `Error: ${error.message}. Please try again.`
+        }
+      ]);
       setIsLoading(false);
     }
   };
 
-  const canSend = (input.trim().length > 0 || selectedImages.length > 0) && !isLoading;
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       handleSendMessage();
     }
   };
@@ -99,24 +107,18 @@ function AIPanel() {
     });
   };
 
+  const canSend = (input.trim().length > 0 || selectedImages.length > 0) && !isLoading;
+
   return (
     <div className="ai-chat-container">
       <div className="ai-messages">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`ai-message ${message.type}`}
-          >
+          <div key={message.id} className={`ai-message ${message.type}`}>
             {message.content}
             {message.images?.length > 0 && (
               <div className="ai-message-images">
                 {message.images.map((image) => (
-                  <img
-                    key={image.id}
-                    src={image.url}
-                    alt={image.name}
-                    className="ai-message-image"
-                  />
+                  <img key={image.id} src={image.url} alt={image.name} className="ai-message-image" />
                 ))}
               </div>
             )}
@@ -129,7 +131,7 @@ function AIPanel() {
         )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       <div className="ai-input-container">
         <input
           ref={imageInputRef}
@@ -144,7 +146,7 @@ function AIPanel() {
           <textarea
             className="ai-input"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(event) => setInput(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask me anything about your code..."
             rows={3}
@@ -157,32 +159,24 @@ function AIPanel() {
             type="button"
             title="Upload image"
           >
-            <img className="ai-upload-icon-img" src={uploadImageIcon} alt="" aria-hidden="true" />
+            <VSIcon name="VscAdd" size={18} />
           </button>
           {canSend && (
-            <button
-              className="ai-send-arrow"
-              onClick={handleSendMessage}
-              type="button"
-              title="Send"
-            >
-              ↑
+            <button className="ai-send-arrow" onClick={handleSendMessage} type="button" title="Send">
+              <VSIcon name="VscArrowUp" size={14} />
             </button>
           )}
         </div>
       </div>
+
       {selectedImages.length > 0 && (
         <div className="ai-upload-preview">
           {selectedImages.map((image) => (
             <div key={image.id} className="ai-upload-chip">
               <img src={image.url} alt={image.name} className="ai-upload-thumb" />
               <span className="ai-upload-name">{image.name}</span>
-              <button
-                type="button"
-                className="ai-upload-remove"
-                onClick={() => removeImage(image.id)}
-              >
-                ×
+              <button type="button" className="ai-upload-remove" onClick={() => removeImage(image.id)}>
+                <VSIcon name="VscClose" size={12} />
               </button>
             </div>
           ))}

@@ -2,29 +2,27 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, shell } = require("electron")
 const fs = require("fs/promises");
 const path = require("path");
 
-const workspaceRoot = process.cwd();
+let workspaceRoot = process.cwd();
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
+
+ipcMain.handle("cf:set-workspace", async (_event, folderPath) => {
+  if (!folderPath) return { ok: false };
+  workspaceRoot = path.resolve(folderPath);
+  return { ok: true, workspaceRoot };
+});
 
 function resolveWorkspacePath(relativeOrAbsolutePath) {
   if (!relativeOrAbsolutePath || typeof relativeOrAbsolutePath !== "string") {
     throw new Error("A valid file path is required.");
   }
 
-  const candidate = path.isAbsolute(relativeOrAbsolutePath)
-    ? relativeOrAbsolutePath
-    : path.resolve(workspaceRoot, relativeOrAbsolutePath);
-
-  const normalizedWorkspace = path.resolve(workspaceRoot) + path.sep;
-  const normalizedCandidate = path.resolve(candidate);
-
-  if (
-    normalizedCandidate !== path.resolve(workspaceRoot) &&
-    !normalizedCandidate.startsWith(normalizedWorkspace)
-  ) {
-    throw new Error("File path must stay inside the workspace.");
+  // If it's absolute, we allow it (for flexibility with Open Recent/Folder)
+  if (path.isAbsolute(relativeOrAbsolutePath)) {
+    return path.resolve(relativeOrAbsolutePath);
   }
 
-  return normalizedCandidate;
+  // Otherwise, resolve relative to workspace root
+  return path.resolve(workspaceRoot, relativeOrAbsolutePath);
 }
 
 function resolveTerminalCwd(candidatePath) {
@@ -35,22 +33,33 @@ function resolveTerminalCwd(candidatePath) {
 }
 
 function buildPrompt(instruction, code) {
+  const hasCode = typeof code === "string" && code.trim().length > 0;
+  if (hasCode) {
+    return [
+      "You are an expert software engineer.",
+      "Apply the instruction to the code.",
+      "Return only the full updated code without markdown fences.",
+      "",
+      "Instruction:",
+      instruction,
+      "",
+      "Code:",
+      code
+    ].join("\n");
+  }
+
   return [
-    "You are an expert software engineer.",
-    "Apply the instruction to the code.",
-    "Return only the full updated code without markdown fences.",
+    "You are an expert coding assistant.",
+    "Respond concisely and accurately.",
     "",
-    "Instruction:",
-    instruction,
-    "",
-    "Code:",
-    code
+    "User request:",
+    instruction
   ].join("\n");
 }
 
 async function askOllama({ instruction, code, model }) {
-  if (!instruction || !code) {
-    throw new Error("Instruction and code are required.");
+  if (!instruction) {
+    throw new Error("Instruction is required.");
   }
 
   const response = await fetch("http://127.0.0.1:11434/api/generate", {
@@ -81,7 +90,7 @@ async function listWorkspaceFiles(currentDir) {
   const entries = await fs.readdir(currentDir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    if (entry.name === ".git") continue;
+    if (entry.name === ".git" || entry.name === "node_modules" || entry.name === "dist" || entry.name === "build") continue;
     const fullPath = path.join(currentDir, entry.name);
     if (entry.isDirectory()) {
       const nested = await listWorkspaceFiles(fullPath);
@@ -99,31 +108,25 @@ function sendMenuAction(win, action) {
 }
 
 function createMenu(win) {
+  const action = (id) => () => sendMenuAction(win, id);
+
   const template = [
     {
       label: "File",
       submenu: [
-        {
-          label: "New File",
-          accelerator: "CmdOrCtrl+N",
-          click: () => sendMenuAction(win, "file.new")
-        },
-        {
-          label: "Open File...",
-          accelerator: "CmdOrCtrl+O",
-          click: () => sendMenuAction(win, "file.open")
-        },
+        { label: "New Text File", accelerator: "CmdOrCtrl+N", click: action("file.new") },
+        { label: "New Window", accelerator: "CmdOrCtrl+Shift+N", click: action("file.newWindow") },
         { type: "separator" },
-        {
-          label: "Save",
-          accelerator: "CmdOrCtrl+S",
-          click: () => sendMenuAction(win, "file.save")
-        },
-        {
-          label: "Save As...",
-          accelerator: "CmdOrCtrl+Shift+S",
-          click: () => sendMenuAction(win, "file.saveAs")
-        },
+        { label: "Open File...", accelerator: "CmdOrCtrl+O", click: action("file.open") },
+        { label: "Open Folder...", click: action("file.openFolder") },
+        { type: "separator" },
+        { label: "Save", accelerator: "CmdOrCtrl+S", click: action("file.save") },
+        { label: "Save As...", accelerator: "CmdOrCtrl+Shift+S", click: action("file.saveAs") },
+        { label: "Save All", click: action("file.saveAll") },
+        { label: "Auto Save", click: action("file.autoSave") },
+        { type: "separator" },
+        { label: "Close Editor", accelerator: "CmdOrCtrl+W", click: action("file.closeEditor") },
+        { label: "Close Window", accelerator: "CmdOrCtrl+Shift+W", click: action("file.closeWindow") },
         { type: "separator" },
         {
           label: "Exit",
@@ -135,77 +138,100 @@ function createMenu(win) {
     {
       label: "Edit",
       submenu: [
-        { label: "Undo", accelerator: "CmdOrCtrl+Z", click: () => sendMenuAction(win, "edit.undo") },
-        { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", click: () => sendMenuAction(win, "edit.redo") },
+        { label: "Undo", accelerator: "CmdOrCtrl+Z", click: action("edit.undo") },
+        { label: "Redo", accelerator: "CmdOrCtrl+Y", click: action("edit.redo") },
         { type: "separator" },
-        { label: "Cut", accelerator: "CmdOrCtrl+X", click: () => sendMenuAction(win, "edit.cut") },
-        { label: "Copy", accelerator: "CmdOrCtrl+C", click: () => sendMenuAction(win, "edit.copy") },
-        { label: "Paste", accelerator: "CmdOrCtrl+V", click: () => sendMenuAction(win, "edit.paste") },
-        { label: "Select All", accelerator: "CmdOrCtrl+A", click: () => sendMenuAction(win, "edit.selectAll") }
+        { label: "Cut", accelerator: "CmdOrCtrl+X", click: action("edit.cut") },
+        { label: "Copy", accelerator: "CmdOrCtrl+C", click: action("edit.copy") },
+        { label: "Paste", accelerator: "CmdOrCtrl+V", click: action("edit.paste") },
+        { label: "Select All", accelerator: "CmdOrCtrl+A", click: action("edit.selectAll") },
+        { type: "separator" },
+        { label: "Find", accelerator: "CmdOrCtrl+F", click: action("edit.find") },
+        { label: "Replace", accelerator: "CmdOrCtrl+H", click: action("edit.replace") },
+        { label: "Find in Files", accelerator: "CmdOrCtrl+Shift+F", click: action("edit.findInFiles") },
+        { label: "Replace in Files", accelerator: "CmdOrCtrl+Shift+H", click: action("edit.replaceInFiles") },
+        { type: "separator" },
+        { label: "Toggle Line Comment", accelerator: "CmdOrCtrl+/", click: action("edit.toggleComment") },
+        { label: "Format Document", accelerator: "Shift+Alt+F", click: action("edit.formatDocument") }
       ]
     },
     {
       label: "Selection",
       submenu: [
-        { label: "Copy Line Up", accelerator: "Shift+Alt+Up", click: () => sendMenuAction(win, "selection.copyLineUp") },
-        { label: "Copy Line Down", accelerator: "Shift+Alt+Down", click: () => sendMenuAction(win, "selection.copyLineDown") },
-        { label: "Expand Selection", accelerator: "Shift+Alt+Right", click: () => sendMenuAction(win, "selection.expand") },
-        { label: "Shrink Selection", accelerator: "Shift+Alt+Left", click: () => sendMenuAction(win, "selection.shrink") }
+        { label: "Select Line", accelerator: "CmdOrCtrl+L", click: action("selection.selectLine") },
+        { label: "Copy Line Up", accelerator: "Shift+Alt+Up", click: action("selection.copyLineUp") },
+        { label: "Copy Line Down", accelerator: "Shift+Alt+Down", click: action("selection.copyLineDown") },
+        { label: "Move Line Up", accelerator: "Alt+Up", click: action("selection.moveLineUp") },
+        { label: "Move Line Down", accelerator: "Alt+Down", click: action("selection.moveLineDown") },
+        { type: "separator" },
+        { label: "Expand Selection", accelerator: "Shift+Alt+Right", click: action("selection.expand") },
+        { label: "Shrink Selection", accelerator: "Shift+Alt+Left", click: action("selection.shrink") }
       ]
     },
     {
       label: "View",
       submenu: [
-        { label: "Reload", accelerator: "CmdOrCtrl+R", role: "reload" },
-        { label: "Force Reload", accelerator: "CmdOrCtrl+Shift+R", role: "forceReload" },
-        { label: "Toggle Developer Tools", accelerator: "F12", role: "toggleDevTools" },
-        { label: "Toggle Full Screen", accelerator: "F11", click: () => sendMenuAction(win, "view.toggleFullScreen") },
+        { label: "Command Palette...", accelerator: "CmdOrCtrl+Shift+P", click: action("view.commandPalette") },
         { type: "separator" },
-        {
-          label: "Toggle AI Panel",
-          accelerator: "CmdOrCtrl+J",
-          click: () => sendMenuAction(win, "view.toggleAI")
-        },
-        {
-          label: "Toggle File Explorer",
-          accelerator: "CmdOrCtrl+B",
-          click: () => sendMenuAction(win, "view.toggleSidebar")
-        },
-        {
-          label: "Toggle Terminal",
-          accelerator: "Ctrl+`",
-          click: () => sendMenuAction(win, "view.toggleTerminal")
-        }
+        { label: "Explorer", accelerator: "CmdOrCtrl+Shift+E", click: action("view.openExplorer") },
+        { label: "Search", accelerator: "CmdOrCtrl+Shift+F", click: action("view.openSearch") },
+        { label: "Source Control", accelerator: "CmdOrCtrl+Shift+G", click: action("view.openSourceControl") },
+        { label: "Run and Debug", accelerator: "CmdOrCtrl+Shift+D", click: action("view.openRun") },
+        { label: "Extensions", accelerator: "CmdOrCtrl+Shift+X", click: action("view.openExtensions") },
+        { type: "separator" },
+        { label: "Toggle Primary Side Bar", accelerator: "CmdOrCtrl+B", click: action("view.toggleSidebar") },
+        { label: "Toggle Activity Bar", click: action("view.toggleActivityBar") },
+        { label: "Toggle Secondary Side Bar", click: action("view.toggleAI") },
+        { label: "Toggle Panel", accelerator: "CmdOrCtrl+J", click: action("view.togglePanel") },
+        { label: "Toggle Status Bar", click: action("view.toggleStatusBar") },
+        { label: "Toggle Word Wrap", accelerator: "Alt+Z", click: action("view.toggleWordWrap") },
+        { label: "Toggle Full Screen", accelerator: "F11", click: action("view.toggleFullScreen") },
+        { type: "separator" },
+        { label: "Toggle Developer Tools", accelerator: "F12", role: "toggleDevTools" }
       ]
     },
     {
       label: "Go",
       submenu: [
-        { label: "Back", accelerator: "Alt+Left", click: () => sendMenuAction(win, "go.back") },
-        { label: "Forward", accelerator: "Alt+Right", click: () => sendMenuAction(win, "go.forward") },
-        { label: "Go to File...", accelerator: "CmdOrCtrl+P", click: () => sendMenuAction(win, "go.file") },
-        { label: "Go to Symbol...", accelerator: "CmdOrCtrl+Shift+O", click: () => sendMenuAction(win, "go.symbol") }
+        { label: "Back", accelerator: "Alt+Left", click: action("go.back") },
+        { label: "Forward", accelerator: "Alt+Right", click: action("go.forward") },
+        { type: "separator" },
+        { label: "Go to File...", accelerator: "CmdOrCtrl+P", click: action("go.file") },
+        { label: "Go to Symbol...", accelerator: "CmdOrCtrl+Shift+O", click: action("go.symbol") },
+        { label: "Go to Line...", accelerator: "CmdOrCtrl+G", click: action("go.line") },
+        { label: "Go to Definition", accelerator: "F12", click: action("go.definition") },
+        { label: "Go to References", accelerator: "Shift+F12", click: action("go.reference") }
       ]
     },
     {
       label: "Run",
       submenu: [
-        { label: "Start Debugging", accelerator: "F5", click: () => sendMenuAction(win, "run.debug") },
-        { label: "Start Without Debugging", accelerator: "Ctrl+F5", click: () => sendMenuAction(win, "run.noDebug") },
-        { label: "Toggle Breakpoint", accelerator: "F9", click: () => sendMenuAction(win, "run.breakpoint") }
+        { label: "Start Debugging", accelerator: "F5", click: action("run.debug") },
+        { label: "Start Without Debugging", accelerator: "Ctrl+F5", click: action("run.noDebug") },
+        { label: "Toggle Breakpoint", accelerator: "F9", click: action("run.breakpoint") },
+        { type: "separator" },
+        { label: "Run Task...", click: action("run.task") }
       ]
     },
     {
       label: "Terminal",
       submenu: [
-        { label: "New Terminal", accelerator: "Ctrl+Shift+`", click: () => sendMenuAction(win, "terminal.new") },
-        { label: "Run Task", click: () => sendMenuAction(win, "terminal.runTask") },
-        { label: "Clear Terminal", click: () => sendMenuAction(win, "terminal.clear") }
+        { label: "New Terminal", accelerator: "Ctrl+Shift+`", click: action("terminal.new") },
+        { label: "Split Terminal", accelerator: "Ctrl+Shift+5", click: action("terminal.split") },
+        { label: "Kill Active Terminal", accelerator: "Ctrl+Shift+W", click: action("terminal.kill") },
+        { label: "Clear Terminal", click: action("terminal.clear") },
+        { type: "separator" },
+        { label: "Run Task...", click: action("terminal.runTask") },
+        { label: "New Terminal at Workspace Root", click: action("terminal.cwdWorkspace") }
       ]
     },
     {
       label: "Help",
       submenu: [
+        { label: "Welcome", click: action("help.welcome") },
+        { label: "Documentation", click: action("help.documentation") },
+        { label: "Keyboard Shortcuts Reference", click: action("help.shortcutReference") },
+        { type: "separator" },
         {
           label: "About CodeForge",
           click: async () => {
@@ -213,14 +239,11 @@ function createMenu(win) {
               type: "info",
               title: "About CodeForge",
               message: "CodeForge",
-              detail: "Cursor style AI code editor powered by Electron and React."
+              detail: "VS Code-style shell with Monaco, terminal and local AI integration."
             });
           }
         },
-        {
-          label: "Learn More",
-          click: async () => shell.openExternal("https://github.com/sivmsrma/CodeForge")
-        }
+        { label: "Learn More", click: async () => shell.openExternal("https://github.com/sivmsrma/CodeForge") }
       ]
     }
   ];
@@ -276,10 +299,32 @@ app.whenReady().then(() => {
     return path.relative(workspaceRoot, selected);
   });
 
+  ipcMain.handle("cf:pick-folder", async () => {
+    const result = await dialog.showOpenDialog({
+      defaultPath: workspaceRoot,
+      properties: ["openDirectory"]
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return path.resolve(result.filePaths[0]);
+  });
+
   ipcMain.handle("cf:read-file", async (_event, filePath) => {
-    const absolutePath = resolveWorkspacePath(filePath);
-    const content = await fs.readFile(absolutePath, "utf-8");
-    return content;
+    try {
+      const absolutePath = resolveWorkspacePath(filePath);
+      const stats = await fs.stat(absolutePath);
+      if (stats.isDirectory()) {
+        return null; // Don't try to read directories as text
+      }
+      const content = await fs.readFile(absolutePath, "utf-8");
+      return content;
+    } catch (error) {
+      console.warn(`IPC: Failed to read file ${filePath}:`, error.message);
+      return null;
+    }
   });
 
   ipcMain.handle("cf:write-file", async (_event, payload) => {
@@ -350,6 +395,81 @@ app.whenReady().then(() => {
       throw new Error("Target path is not a directory.");
     }
     return resolved;
+  });
+
+  ipcMain.handle("cf:search-in-files", async (_event, payload) => {
+    const { query, options } = payload || {};
+    if (!query) return [];
+
+    const { matchCase, wholeWord, useRegex } = options || {};
+    const results = [];
+    
+    // Helper to search a single file
+    const searchFile = async (filePath) => {
+      try {
+        const absolutePath = resolveWorkspacePath(filePath);
+        const content = await fs.readFile(absolutePath, "utf-8");
+        
+        const lines = content.split(/\r?\n/);
+        const fileMatches = [];
+        
+        let flags = "g";
+        if (!matchCase) flags += "i";
+        
+        let searchPattern = query;
+        if (!useRegex) {
+          searchPattern = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        }
+        if (wholeWord) {
+          searchPattern = `\\b${searchPattern}\\b`;
+        }
+
+        const regex = new RegExp(searchPattern, flags);
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (regex.test(line)) {
+            fileMatches.push({
+              lineNumber: i + 1,
+              text: line.trim(),
+              preview: line
+            });
+          }
+        }
+
+        if (fileMatches.length > 0) {
+          return {
+            path: filePath,
+            name: path.basename(filePath),
+            matches: fileMatches
+          };
+        }
+      } catch (e) {
+        // Skip files that can't be read
+      }
+      return null;
+    };
+
+    const allFiles = await listWorkspaceFiles(workspaceRoot);
+    const filteredFiles = allFiles.filter(f => 
+      !f.includes("node_modules/") && 
+      !f.includes(".git/") && 
+      !f.includes("dist/") && 
+      !f.includes("build/")
+    );
+
+    // Process in parallel with a limit to avoid system strain
+    const concurrency = 20;
+    for (let i = 0; i < filteredFiles.length; i += concurrency) {
+      const batch = filteredFiles.slice(i, i + concurrency);
+      const batchResults = await Promise.all(batch.map(searchFile));
+      results.push(...batchResults.filter(Boolean));
+      
+      // Safety: limit total results for responsiveness
+      if (results.length > 1000) break;
+    }
+
+    return results;
   });
 
   ipcMain.handle("cf:execute-command", async (_event, payload) => {
@@ -425,6 +545,101 @@ app.whenReady().then(() => {
     return { branch, isDirty };
   });
 
+  ipcMain.handle("cf:git-commit", async (_event, message) => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      // First stage all changes if they are not staged
+      exec("git add .", { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (addError) => {
+        if (addError) {
+          resolve({ ok: false, error: addError.message });
+          return;
+        }
+        // Then commit
+        const escapedMessage = String(message || "Update").replace(/"/g, '\\"');
+        exec(`git commit -m "${escapedMessage}"`, { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (commitError, stdout) => {
+          if (commitError) {
+            resolve({ ok: false, error: commitError.message });
+          } else {
+            resolve({ ok: true, output: stdout });
+          }
+        });
+      });
+    });
+  });
+
+  ipcMain.handle("cf:git-log", async () => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      // Get last 20 commits with author and date
+      const format = "%h|%s|%an|%ar";
+      exec(`git log -n 20 --pretty=format:"${format}"`, { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (error, stdout) => {
+        if (error) {
+          resolve([]);
+          return;
+        }
+        const logs = String(stdout || "").split(/\r?\n/).filter(Boolean).map(line => {
+          const [hash, subject, author, date] = line.split("|");
+          return { hash, subject, author, date };
+        });
+        resolve(logs);
+      });
+    });
+  });
+
+  ipcMain.handle("cf:git-discard", async (_event, filePath) => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      exec(`git checkout -- "${filePath}"`, { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (error) => {
+        if (error) {
+          resolve({ ok: false, error: error.message });
+        } else {
+          resolve({ ok: true });
+        }
+      });
+    });
+  });
+
+  ipcMain.handle("cf:git-add", async (_event, filePath) => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      exec(`git add "${filePath}"`, { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (error) => {
+        if (error) resolve({ ok: false, error: error.message });
+        else resolve({ ok: true });
+      });
+    });
+  });
+
+  ipcMain.handle("cf:git-push", async () => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      exec("git push", { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (error, stdout, stderr) => {
+        if (error) resolve({ ok: false, error: stderr || error.message });
+        else resolve({ ok: true, output: stdout });
+      });
+    });
+  });
+
+  ipcMain.handle("cf:git-pull", async () => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      exec("git pull", { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (error, stdout, stderr) => {
+        if (error) resolve({ ok: false, error: stderr || error.message });
+        else resolve({ ok: true, output: stdout });
+      });
+    });
+  });
+
+  ipcMain.handle("cf:git-amend", async (_event, message) => {
+    const { exec } = require("child_process");
+    return new Promise((resolve) => {
+      const msgArg = message ? `-m "${String(message).replace(/"/g, '\\"')}"` : "--no-edit";
+      exec(`git commit --amend ${msgArg}`, { cwd: workspaceRoot, encoding: "utf8", windowsHide: true }, (error, stdout) => {
+        if (error) resolve({ ok: false, error: error.message });
+        else resolve({ ok: true, output: stdout });
+      });
+    });
+  });
+
   ipcMain.handle("cf:window-action", async (event, action) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return { ok: false };
@@ -446,6 +661,11 @@ app.whenReady().then(() => {
       return { ok: true };
     }
     return { ok: false };
+  });
+
+  ipcMain.handle("cf:new-window", async () => {
+    createWindow();
+    return { ok: true };
   });
 
   createWindow();

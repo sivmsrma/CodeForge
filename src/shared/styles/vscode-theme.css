@@ -1,0 +1,53 @@
+:root {
+    /* General Backgrounds */
+    --vscode-background: #1e1e1e; /* Main background */
+    --vscode-sidebar-bg: #252526; /* Sidebar/Panel background */
+    --vscode-editor-bg: #1e1e1e; /* Editor canvas background */
+    --vscode-panel-bg: #252526; /* Terminal/Output panel background */
+    
+    /* Text Colors */
+    --vscode-text-normal: #cccccc;
+    --vscode-text-muted: #858585;
+    --vscode-selection: #37373d; /* Selection highlight */
+    
+    /* Accent Colors */
+    --vscode-border-color: #3c3c3c; /* Separator lines */
+    --vscode-accent: #007acc; /* Link/Active item color (Blue) */
+    --vscode-hover-bg: #2a2a2a; /* Hover effect on list items */
+}
+
+/* General container styling to enforce the theme */
+body, #root {
+    background-color: var(--vscode-background);
+    color: var(--vscode-text-normal);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Modern system font stack */
+    margin: 0;
+    padding: 0;
+}
+
+/* Utility for separating panes visually */
+.vscode-separator {
+    border-bottom: 1px solid var(--vscode-border-color);
+}
+"
+/* ===================================================== */
+/* 🎨 CORE LAYOUT STYLES */
+/* ===================================================== */
+:root {
+    /* Define primary color variables for consistency */
+    --sidebar-width: 40px; /* Icon width for activity bar */
+    --panel-width: 250px; /* Width for the panel/sidebar area */
+    --main-bg: #1e1e1e; /* Dark editor background */
+    --panel-bg: #252526; /* Darker background for side panels */
+    --text-color: #cccccc;
+    --border-color: #333333;
+}
+
+.main-app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Full viewport height */
+    background-color: var(--main-bg);
+    color: var(--text-color);
+    /* Ensures the whole app structure fills the viewport */
+}
